@@ -341,7 +341,7 @@ export async function recordPayment(
   await logActivity({
     organizationId,
     actorId,
-    action: "invoice.payment_recorded",
+    action: "payment.received",
     entityType: "invoice",
     entityId: invoiceId,
     metadata: { amount: data.amount, method: data.method, isPaid },

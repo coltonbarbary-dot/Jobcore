@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import Stripe from "stripe";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { recordPayment } from "@/lib/services/invoices";
 
@@ -78,6 +79,14 @@ export async function POST(request: Request) {
 
     return new Response("OK", { status: 200 });
   } catch (error) {
+    // P2002 on stripePaymentIntentId unique constraint = concurrent duplicate delivery;
+    // the first request already recorded it — return 200 so Stripe doesn't retry.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return new Response("OK (concurrent duplicate)", { status: 200 });
+    }
     console.error("Stripe webhook error:", error);
     return new Response("Internal error", { status: 500 });
   }
