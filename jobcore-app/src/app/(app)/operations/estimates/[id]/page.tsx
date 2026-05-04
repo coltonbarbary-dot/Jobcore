@@ -31,11 +31,20 @@ export default async function EstimateDetailPage({
 
   if (!estimate) notFound();
 
+  const now = new Date();
+  const isExpired = !!estimate.validUntil && estimate.validUntil < now;
+  const isFinal = estimate.status === "approved" || estimate.status === "declined";
+  const showExpiryWarning = isExpired && !isFinal;
+
   const TABS = ["overview", "items", "activity"] as const;
   const canEdit = estimate.status === "draft" || estimate.status === "sent" || estimate.status === "viewed";
   const canDelete = estimate.status === "draft";
-  const canSend = estimate.status !== "approved" && estimate.status !== "declined";
+  const canSend = !isFinal;
   const publicUrl = estimate.approvalToken ? getEstimatePublicUrl(estimate.approvalToken) : null;
+
+  // Job created from this estimate (only present after approval)
+  const linkedJob = estimate.job;
+  const jobNeedsScheduling = linkedJob && !linkedJob.scheduledStart;
 
   return (
     <PageShell
@@ -43,6 +52,11 @@ export default async function EstimateDetailPage({
       description={
         <span className="flex items-center gap-2">
           <EstimateStatusBadge status={estimate.status} />
+          {showExpiryWarning && (
+            <span className="text-xs font-medium text-[#b45309] bg-[#fffbeb] border border-[#fde68a] rounded px-1.5 py-0.5">
+              Expired
+            </span>
+          )}
           <span className="text-[#9ca3af]">· {estimate.title}</span>
         </span>
       }
@@ -83,7 +97,43 @@ export default async function EstimateDetailPage({
       </div>
 
       {tab === "overview" && (
-        <div className="max-w-lg space-y-6">
+        <div className="max-w-lg space-y-5">
+          {/* Expiry warning banner */}
+          {showExpiryWarning && (
+            <div className="rounded-md bg-[#fffbeb] border border-[#fde68a] px-4 py-3 text-sm text-[#92400e]">
+              <strong>This estimate expired on {formatDate(estimate.validUntil!)}.</strong> The customer can no
+              longer approve it. Edit the estimate and extend the valid-until date, then resend.
+            </div>
+          )}
+
+          {/* Approved: schedule job CTA */}
+          {estimate.status === "approved" && linkedJob && (
+            <div className={`rounded-md border px-4 py-3 ${jobNeedsScheduling ? "bg-[#eff6ff] border-[#bfdbfe]" : "bg-[#f0fdf4] border-[#bbf7d0]"}`}>
+              {jobNeedsScheduling ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-[#1e40af]">Job created — needs scheduling</p>
+                    <p className="text-xs text-[#3b82f6] mt-0.5">
+                      Set a start date so this job appears on the calendar.
+                    </p>
+                  </div>
+                  <Button size="sm" asChild>
+                    <Link href={`/operations/jobs/${linkedJob.id}/edit`}>Schedule Job →</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-[#16a34a]">
+                    Job scheduled for {formatDate(linkedJob.scheduledStart!)}
+                  </p>
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href={`/operations/jobs/${linkedJob.id}`}>View Job →</Link>
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
           <dl className="grid grid-cols-2 gap-4">
             {[
               { label: "Status", value: <EstimateStatusBadge status={estimate.status} /> },
@@ -95,7 +145,14 @@ export default async function EstimateDetailPage({
                   </Link>
                 ),
               },
-              { label: "Valid Until", value: estimate.validUntil ? formatDate(estimate.validUntil) : "—" },
+              {
+                label: "Valid Until",
+                value: estimate.validUntil ? (
+                  <span className={isExpired && !isFinal ? "text-[#b45309] font-medium" : ""}>
+                    {formatDate(estimate.validUntil)}{isExpired && !isFinal ? " (expired)" : ""}
+                  </span>
+                ) : "—",
+              },
               { label: "Created", value: formatDate(estimate.createdAt) },
               { label: "Sent", value: estimate.sentAt ? formatDate(estimate.sentAt) : "—" },
               { label: "Viewed", value: estimate.viewedAt ? formatDate(estimate.viewedAt) : "—" },

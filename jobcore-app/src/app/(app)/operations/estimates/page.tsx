@@ -24,6 +24,7 @@ export default async function EstimatesPage({
   const { status = "all" } = await searchParams;
   const { org } = await requireOrg();
   const allEstimates = await listEstimates(org.id);
+  const now = new Date();
 
   const estimates = status === "all" ? allEstimates : allEstimates.filter((e) => e.status === status);
 
@@ -86,7 +87,13 @@ export default async function EstimatesPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f3f4f6]">
-              {estimates.map((est) => (
+              {estimates.map((est) => {
+                const estExpired =
+                  !!est.validUntil &&
+                  est.validUntil < now &&
+                  est.status !== "approved" &&
+                  est.status !== "declined";
+                return (
                 <tr key={est.id} className="hover:bg-[#f9fafb] transition-colors">
                   <td className="px-4 py-3">
                     <Link href={`/operations/estimates/${est.id}`} className="font-medium text-[#0a0a0a] hover:underline">
@@ -102,15 +109,20 @@ export default async function EstimatesPage({
                   <td className="px-4 py-3">
                     <EstimateStatusBadge status={est.status} />
                   </td>
-                  <td className="px-4 py-3 text-[#6b7280] hidden md:table-cell">
-                    {est.validUntil ? formatDate(est.validUntil) : "—"}
+                  <td className="px-4 py-3 hidden md:table-cell">
+                    {est.validUntil ? (
+                      <span className={estExpired ? "text-[#b45309] font-medium" : "text-[#6b7280]"}>
+                        {formatDate(est.validUntil)}{estExpired ? " ⚠" : ""}
+                      </span>
+                    ) : "—"}
                   </td>
                   <td className="px-4 py-3 text-right text-[#374151] hidden lg:table-cell">
                     {formatCurrency(Number(est.total))}
                   </td>
                   <td className="px-4 py-3 text-[#9ca3af] hidden lg:table-cell">{formatDate(est.createdAt)}</td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

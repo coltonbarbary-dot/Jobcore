@@ -1,7 +1,6 @@
 import { db } from "@/lib/db";
-import { type Estimate, type EstimateItem, type Customer, type Job, EstimateStatus } from "@prisma/client";
+import { Prisma, type Estimate, type EstimateItem, type Customer, type Job } from "@prisma/client";
 import { logActivity } from "./activity";
-import { createJob } from "./jobs";
 
 export type EstimateItemInput = {
   description: string;
@@ -12,6 +11,7 @@ export type EstimateItemInput = {
 export type EstimateWithRelations = Estimate & {
   customer: Pick<Customer, "id" | "fullName" | "email" | "phone">;
   items: EstimateItem[];
+  job: Pick<Job, "id" | "scheduledStart"> | null;
 };
 
 export type CreateEstimateData = {
@@ -33,10 +33,38 @@ function computeTotals(items: EstimateItemInput[], taxRate: number) {
   return { subtotal, taxAmount, total };
 }
 
+// Find the current maximum EST-XXXX number for this org and return the next one.
+// Re-queries on every call so concurrent retry loops converge correctly.
 async function nextEstimateNumber(organizationId: string): Promise<string> {
-  const count = await db.estimate.count({ where: { organizationId } });
-  return `EST-${String(count + 1).padStart(4, "0")}`;
+  const latest = await db.estimate.findFirst({
+    where: { organizationId, estimateNumber: { startsWith: "EST-" } },
+    orderBy: { estimateNumber: "desc" },
+    select: { estimateNumber: true },
+  });
+
+  let next = 1;
+  if (latest) {
+    const parsed = parseInt(latest.estimateNumber.replace(/^EST-/, ""), 10);
+    if (!isNaN(parsed)) next = parsed + 1;
+  }
+
+  return `EST-${String(next).padStart(4, "0")}`;
 }
+
+function isNumberConflict(e: unknown): boolean {
+  return (
+    e instanceof Prisma.PrismaClientKnownRequestError &&
+    e.code === "P2002" &&
+    Array.isArray((e.meta as { target?: string[] } | undefined)?.target) &&
+    ((e.meta as { target: string[] }).target).some((f) => f.includes("estimateNumber"))
+  );
+}
+
+const ESTIMATE_INCLUDE = {
+  customer: { select: { id: true, fullName: true, email: true, phone: true } },
+  items: { orderBy: { sortOrder: "asc" } },
+  job: { select: { id: true, scheduledStart: true } },
+} as const;
 
 export async function listEstimates(
   organizationId: string,
@@ -44,10 +72,7 @@ export async function listEstimates(
 ): Promise<EstimateWithRelations[]> {
   return db.estimate.findMany({
     where: { organizationId },
-    include: {
-      customer: { select: { id: true, fullName: true, email: true, phone: true } },
-      items: { orderBy: { sortOrder: "asc" } },
-    },
+    include: ESTIMATE_INCLUDE,
     orderBy: { createdAt: "desc" },
     take: Math.min(limit, 500),
     skip: offset,
@@ -60,15 +85,15 @@ export async function getEstimate(
 ): Promise<EstimateWithRelations | null> {
   return db.estimate.findFirst({
     where: { id: estimateId, organizationId },
-    include: {
-      customer: { select: { id: true, fullName: true, email: true, phone: true } },
-      items: { orderBy: { sortOrder: "asc" } },
-    },
+    include: ESTIMATE_INCLUDE,
   });
 }
 
-// Public access — no org filter, only by token
-export async function getEstimateByToken(token: string): Promise<EstimateWithRelations | null> {
+// Public access — no org filter, only by token. Does not include job.
+export async function getEstimateByToken(token: string): Promise<(Estimate & {
+  customer: Pick<Customer, "id" | "fullName" | "email" | "phone">;
+  items: EstimateItem[];
+}) | null> {
   return db.estimate.findUnique({
     where: { approvalToken: token },
     include: {
@@ -87,52 +112,22 @@ export async function createEstimate(
   const taxRate = data.taxRate ?? 0;
   const { subtotal, taxAmount, total } = computeTotals(items, taxRate);
 
-  let estimateNumber: string;
-  try {
-    estimateNumber = await nextEstimateNumber(organizationId);
-    const estimate = await db.estimate.create({
-      data: {
-        organizationId,
-        customerId: data.customerId,
-        estimateNumber,
-        title: data.title.trim(),
-        status: "draft",
-        validUntil: data.validUntil ?? null,
-        taxRate,
-        subtotal,
-        taxAmount,
-        total,
-        notes: data.notes?.trim() || null,
-        terms: data.terms?.trim() || null,
-        items: {
-          create: items.map((item, i) => ({
-            description: item.description.trim(),
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            subtotal: item.quantity * item.unitPrice,
-            sortOrder: i,
-          })),
-        },
-      },
-    });
-    await logActivity({
-      organizationId,
-      actorId,
-      action: "estimate.created",
-      entityType: "estimate",
-      entityId: estimate.id,
-      metadata: { estimateNumber: estimate.estimateNumber, title: estimate.title, total },
-    });
-    return estimate;
-  } catch (e: unknown) {
-    // Unique constraint on estimateNumber — retry once
-    if (
-      e instanceof Error &&
-      e.message.includes("Unique constraint") &&
-      e.message.includes("estimateNumber")
-    ) {
-      estimateNumber = `EST-${Date.now()}`;
-      return db.estimate.create({
+  const itemData = items.map((item, i) => ({
+    description: item.description.trim(),
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    subtotal: item.quantity * item.unitPrice,
+    sortOrder: i,
+  }));
+
+  const MAX_RETRIES = 5;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    // Re-read the current max on each attempt so concurrent retries converge
+    const estimateNumber = await nextEstimateNumber(organizationId);
+    try {
+      const estimate = await db.estimate.create({
         data: {
           organizationId,
           customerId: data.customerId,
@@ -146,20 +141,32 @@ export async function createEstimate(
           total,
           notes: data.notes?.trim() || null,
           terms: data.terms?.trim() || null,
-          items: {
-            create: (data.items ?? []).map((item, i) => ({
-              description: item.description.trim(),
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              subtotal: item.quantity * item.unitPrice,
-              sortOrder: i,
-            })),
-          },
+          items: { create: itemData },
         },
       });
+
+      await logActivity({
+        organizationId,
+        actorId,
+        action: "estimate.created",
+        entityType: "estimate",
+        entityId: estimate.id,
+        metadata: { estimateNumber: estimate.estimateNumber, title: estimate.title, total },
+      });
+
+      return estimate;
+    } catch (e) {
+      if (isNumberConflict(e)) {
+        lastError = e;
+        continue; // re-read max and retry
+      }
+      throw e;
     }
-    throw e;
   }
+
+  throw new Error(
+    `Could not generate a unique estimate number after ${MAX_RETRIES} attempts. Please try again.`
+  );
 }
 
 export async function updateEstimate(
@@ -284,7 +291,7 @@ export async function approveEstimate(token: string): Promise<ApproveEstimateRes
     return { jobId: existingJob?.id ?? "", alreadyApproved: true };
   }
 
-  // Transaction: check status once more, approve estimate, create job
+  // Transaction: re-check status, approve estimate, create job atomically
   const result = await db.$transaction(async (tx) => {
     const fresh = await tx.estimate.findUnique({ where: { id: estimate.id }, select: { status: true } });
     if (fresh?.status === "approved") {

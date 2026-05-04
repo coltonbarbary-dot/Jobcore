@@ -31,6 +31,9 @@ export default async function JobDetailPage({
   if (!job) notFound();
 
   const TABS = ["overview", "items", "activity"] as const;
+  // Jobs created from an approved estimate start as draft with no scheduled dates.
+  // Show a CTA until the contractor sets a start date.
+  const needsScheduling = !!job.estimateId && !job.scheduledStart && job.status === "draft";
 
   return (
     <PageShell
@@ -73,7 +76,31 @@ export default async function JobDetailPage({
       </div>
 
       {tab === "overview" && (
-        <div className="max-w-lg space-y-6">
+        <div className="max-w-lg space-y-5">
+          {/* Schedule Job CTA — shown for jobs created from approved estimates */}
+          {needsScheduling && (
+            <div className="rounded-md bg-[#eff6ff] border border-[#bfdbfe] px-4 py-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-[#1e40af]">This job needs to be scheduled</p>
+                <p className="text-xs text-[#3b82f6] mt-0.5">
+                  Set a start date so it appears on your calendar.
+                </p>
+              </div>
+              <Button size="sm" asChild>
+                <Link href={`/operations/jobs/${id}/edit`}>Schedule Job →</Link>
+              </Button>
+            </div>
+          )}
+
+          {job.estimateId && (
+            <div>
+              <p className="text-xs text-[#9ca3af] mb-1">From Estimate</p>
+              <Link href={`/operations/estimates/${job.estimateId}`} className="text-sm text-[#2563eb] hover:underline">
+                View approved estimate →
+              </Link>
+            </div>
+          )}
+
           <dl className="grid grid-cols-2 gap-4">
             {[
               { label: "Status", value: <JobStatusBadge status={job.status} /> },
