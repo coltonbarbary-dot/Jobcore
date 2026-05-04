@@ -225,6 +225,23 @@ export async function updateJobStatus(
   return job;
 }
 
+export async function listScheduledJobs(
+  organizationId: string,
+  { from, to }: { from: Date; to: Date }
+): Promise<JobWithRelations[]> {
+  return db.job.findMany({
+    where: {
+      organizationId,
+      scheduledStart: { gte: from, lt: to },
+    },
+    include: {
+      customer: { select: { id: true, fullName: true, email: true, phone: true } },
+      items: { orderBy: { sortOrder: "asc" } },
+    },
+    orderBy: { scheduledStart: "asc" },
+  });
+}
+
 export async function deleteJob(
   organizationId: string,
   actorId: string,
