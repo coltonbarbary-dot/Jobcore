@@ -14,10 +14,11 @@ import {
 interface ConfirmDeleteDialogProps {
   entityLabel: string;
   entityName: string;
+  confirmLabel?: string;
   onConfirm: () => Promise<void | { error?: string }>;
 }
 
-export function ConfirmDeleteDialog({ entityLabel, entityName, onConfirm }: ConfirmDeleteDialogProps) {
+export function ConfirmDeleteDialog({ entityLabel, entityName, confirmLabel, onConfirm }: ConfirmDeleteDialogProps) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -37,14 +38,15 @@ export function ConfirmDeleteDialog({ entityLabel, entityName, onConfirm }: Conf
   return (
     <>
       <Button variant="destructive" size="sm" onClick={() => setOpen(true)}>
-        Delete
+        {confirmLabel ?? "Delete"}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete {entityLabel}?</DialogTitle>
+            <DialogTitle>{confirmLabel ?? `Delete ${entityLabel}`}?</DialogTitle>
             <DialogDescription>
-              <strong>{entityName}</strong> will be permanently deleted. This cannot be undone.
+              <strong>{entityName}</strong>{" "}
+              {confirmLabel ? "This action cannot be undone." : "will be permanently deleted. This cannot be undone."}
             </DialogDescription>
           </DialogHeader>
           {error && <p className="text-sm text-[#dc2626]">{error}</p>}
@@ -53,7 +55,7 @@ export function ConfirmDeleteDialog({ entityLabel, entityName, onConfirm }: Conf
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleConfirm} disabled={isPending}>
-              {isPending ? "Deleting…" : "Delete"}
+              {isPending ? "Working…" : (confirmLabel ?? "Delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

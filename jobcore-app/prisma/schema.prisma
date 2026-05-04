@@ -314,6 +314,7 @@ model Invoice {
   stripePaymentIntentId  String?
   stripeInvoiceId        String?
   paymentLink            String?
+  publicToken            String?       @unique
   notes                  String?
   terms                  String?
   createdAt              DateTime      @default(now())

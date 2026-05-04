@@ -9,18 +9,22 @@ import {
   Briefcase,
   FileText,
   Users,
+  TrendingUp,
   ArrowRight,
 } from "lucide-react";
 
 export default async function DashboardPage() {
   const { org } = await requireOrg();
 
-  // Live KPI queries — no fake data
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
   const [
     activeJobs,
     totalCustomers,
-    draftEstimates,
+    openEstimates,
     outstandingInvoices,
+    revenueMtd,
   ] = await Promise.all([
     db.job.count({
       where: {
@@ -34,19 +38,28 @@ export default async function DashboardPage() {
     db.estimate.count({
       where: {
         organizationId: org.id,
-        status: { in: ["draft", "sent"] },
+        status: { in: ["draft", "sent", "viewed"] },
       },
     }),
     db.invoice.aggregate({
       where: {
         organizationId: org.id,
-        status: { in: ["sent", "partial", "overdue"] },
+        status: { in: ["sent", "viewed", "partial", "overdue"] },
       },
       _sum: { amountDue: true },
+    }),
+    db.payment.aggregate({
+      where: {
+        organizationId: org.id,
+        status: "succeeded",
+        paidAt: { gte: startOfMonth },
+      },
+      _sum: { amount: true },
     }),
   ]);
 
   const outstanding = Number(outstandingInvoices._sum.amountDue ?? 0);
+  const revenue = Number(revenueMtd._sum.amount ?? 0);
 
   // Recent activity
   const recentActivity = await db.activityLog.findMany({
@@ -58,10 +71,16 @@ export default async function DashboardPage() {
   return (
     <PageShell title="Dashboard">
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4 mb-8">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5 mb-8">
+        <KpiCard
+          title="Revenue (MTD)"
+          value={revenue > 0 ? `$${revenue.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
+          icon={TrendingUp}
+          description="Payments received this month"
+        />
         <KpiCard
           title="Outstanding"
-          value={outstanding > 0 ? `$${outstanding.toLocaleString()}` : "—"}
+          value={outstanding > 0 ? `$${outstanding.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : "—"}
           icon={DollarSign}
           description="Unpaid invoices"
         />
@@ -73,9 +92,9 @@ export default async function DashboardPage() {
         />
         <KpiCard
           title="Open Estimates"
-          value={draftEstimates > 0 ? String(draftEstimates) : "—"}
+          value={openEstimates > 0 ? String(openEstimates) : "—"}
           icon={FileText}
-          description="Draft or awaiting approval"
+          description="Draft, sent, or awaiting approval"
         />
         <KpiCard
           title="Customers"
@@ -94,7 +113,7 @@ export default async function DashboardPage() {
             <QuickAction href="/operations/customers" label="New Customer" />
             <QuickAction href="/operations/jobs" label="New Job" />
             <QuickAction href="/operations/estimates" label="New Estimate" />
-            <QuickAction href="/operations/invoices" label="New Invoice" />
+            <QuickAction href="/operations/invoices/new" label="New Invoice" />
           </div>
         </div>
 
