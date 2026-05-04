@@ -11,6 +11,7 @@ import { ConfirmDeleteDialog } from "@/components/operations/confirm-delete-dial
 import { SendEstimateButton } from "@/components/operations/estimates/send-estimate-button";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { deleteEstimateAction } from "../actions";
+import { FilesTab } from "@/components/files/files-tab";
 import { getEstimatePublicUrl } from "@/lib/email";
 
 export default async function EstimateDetailPage({
@@ -36,7 +37,7 @@ export default async function EstimateDetailPage({
   const isFinal = estimate.status === "approved" || estimate.status === "declined";
   const showExpiryWarning = isExpired && !isFinal;
 
-  const TABS = ["overview", "items", "activity"] as const;
+  const TABS = ["overview", "items", "files", "activity"] as const;
   const canEdit = estimate.status === "draft" || estimate.status === "sent" || estimate.status === "viewed";
   const canDelete = estimate.status === "draft";
   const canSend = !isFinal;
@@ -248,6 +249,15 @@ export default async function EstimateDetailPage({
             </div>
           )}
         </div>
+      )}
+
+      {tab === "files" && (
+        <FilesTab
+          organizationId={org.id}
+          entityType="estimate"
+          entityId={estimate.id}
+          customerId={estimate.customerId}
+        />
       )}
 
       {tab === "activity" && <ActivityTimeline logs={activityLogs} />}

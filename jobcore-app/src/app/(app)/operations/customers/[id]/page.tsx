@@ -10,6 +10,7 @@ import { ConfirmDeleteDialog } from "@/components/operations/confirm-delete-dial
 import { JobStatusBadge } from "@/components/operations/status-badge";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { deleteCustomerAction } from "../actions";
+import { FilesTab } from "@/components/files/files-tab";
 
 export default async function CustomerDetailPage({
   params,
@@ -37,7 +38,7 @@ export default async function CustomerDetailPage({
     ? [address.street, address.city, address.state, address.zip].filter(Boolean).join(", ")
     : null;
 
-  const TABS = ["overview", "jobs", "activity"] as const;
+  const TABS = ["overview", "jobs", "files", "activity"] as const;
 
   return (
     <PageShell
@@ -147,6 +148,15 @@ export default async function CustomerDetailPage({
             </div>
           )}
         </div>
+      )}
+
+      {tab === "files" && (
+        <FilesTab
+          organizationId={org.id}
+          entityType="customer"
+          entityId={customer.id}
+          customerId={customer.id}
+        />
       )}
 
       {/* Activity */}

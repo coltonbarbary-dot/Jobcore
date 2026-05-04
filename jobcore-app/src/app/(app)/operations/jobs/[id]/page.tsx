@@ -11,6 +11,7 @@ import { ConfirmDeleteDialog } from "@/components/operations/confirm-delete-dial
 import { JobStatusSelect } from "@/components/operations/jobs/job-status-select";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { deleteJobAction } from "../actions";
+import { FilesTab } from "@/components/files/files-tab";
 
 export default async function JobDetailPage({
   params,
@@ -30,7 +31,7 @@ export default async function JobDetailPage({
 
   if (!job) notFound();
 
-  const TABS = ["overview", "items", "activity"] as const;
+  const TABS = ["overview", "items", "files", "activity"] as const;
   // Jobs created from an approved estimate start as draft with no scheduled dates.
   // Show a CTA until the contractor sets a start date.
   const needsScheduling = !!job.estimateId && !job.scheduledStart && job.status === "draft";
@@ -169,6 +170,16 @@ export default async function JobDetailPage({
             </div>
           )}
         </div>
+      )}
+
+      {tab === "files" && (
+        <FilesTab
+          organizationId={org.id}
+          entityType="job"
+          entityId={job.id}
+          customerId={job.customerId}
+          jobId={job.id}
+        />
       )}
 
       {tab === "activity" && <ActivityTimeline logs={activityLogs} />}

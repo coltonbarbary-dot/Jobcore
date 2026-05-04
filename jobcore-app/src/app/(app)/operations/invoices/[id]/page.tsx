@@ -13,6 +13,7 @@ import { RecordPaymentDialog } from "@/components/operations/invoices/record-pay
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { getInvoicePublicUrl } from "@/lib/email";
 import { deleteInvoiceAction, voidInvoiceAction } from "../actions";
+import { FilesTab } from "@/components/files/files-tab";
 
 export default async function InvoiceDetailPage({
   params,
@@ -32,7 +33,7 @@ export default async function InvoiceDetailPage({
 
   if (!invoice) notFound();
 
-  const TABS = ["overview", "items", "payments", "activity"] as const;
+  const TABS = ["overview", "items", "payments", "files", "activity"] as const;
 
   const now = new Date();
   const isOverdue =
@@ -284,6 +285,15 @@ export default async function InvoiceDetailPage({
             </div>
           )}
         </div>
+      )}
+
+      {tab === "files" && (
+        <FilesTab
+          organizationId={org.id}
+          entityType="invoice"
+          entityId={invoice.id}
+          customerId={invoice.customerId}
+        />
       )}
 
       {tab === "activity" && <ActivityTimeline logs={activityLogs} />}
