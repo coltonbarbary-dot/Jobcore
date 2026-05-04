@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { type LeadStatus, type JobStatus, type JobPriority } from "@prisma/client";
+import { type LeadStatus, type JobStatus, type JobPriority, type EstimateStatus } from "@prisma/client";
 
 type BadgeVariant = "default" | "secondary" | "success" | "warning" | "danger" | "info" | "outline";
 
@@ -39,5 +39,19 @@ export function JobStatusBadge({ status }: { status: JobStatus }) {
 
 export function JobPriorityBadge({ priority }: { priority: JobPriority }) {
   const { label, variant } = JOB_PRIORITY_MAP[priority] ?? { label: priority, variant: "secondary" as BadgeVariant };
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
+const ESTIMATE_STATUS_MAP: Record<EstimateStatus, { label: string; variant: BadgeVariant }> = {
+  draft: { label: "Draft", variant: "secondary" },
+  sent: { label: "Sent", variant: "info" },
+  viewed: { label: "Viewed", variant: "warning" },
+  approved: { label: "Approved", variant: "success" },
+  declined: { label: "Declined", variant: "danger" },
+  expired: { label: "Expired", variant: "outline" },
+};
+
+export function EstimateStatusBadge({ status }: { status: EstimateStatus }) {
+  const { label, variant } = ESTIMATE_STATUS_MAP[status] ?? { label: status, variant: "secondary" as BadgeVariant };
   return <Badge variant={variant}>{label}</Badge>;
 }
