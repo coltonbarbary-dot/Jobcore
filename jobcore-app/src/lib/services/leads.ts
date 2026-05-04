@@ -5,8 +5,8 @@ import { createCustomer } from "./customers";
 import { createJob } from "./jobs";
 
 export type LeadWithRelations = Lead & {
-  customer: Customer | null; // back-ref: customer created from this lead
-  linkedCustomer?: { id: string; fullName: string } | null; // from customerId field
+  customer: Customer | null;         // customer created from this lead (via Customer.leadId)
+  linkedCustomer: { id: string; fullName: string } | null; // existing customer (via Lead.customerId FK)
 };
 
 export type CreateLeadData = {
@@ -22,60 +22,43 @@ export type CreateLeadData = {
 export type UpdateLeadData = Partial<CreateLeadData>;
 
 export type ConvertLeadData = {
-  // Customer to create (if no existing customer linked)
   createCustomer: boolean;
   customerFullName?: string;
   customerEmail?: string;
   customerPhone?: string;
-  existingCustomerId?: string; // use this customer instead of creating one
-  // Job to create (optional)
+  existingCustomerId?: string;
   createJob: boolean;
   jobTitle?: string;
   jobScheduledStart?: Date;
   jobScheduledEnd?: Date;
 };
 
-export async function listLeads(organizationId: string): Promise<LeadWithRelations[]> {
-  const leads = await db.lead.findMany({
+const LEAD_INCLUDE = {
+  customer: true,
+  linkedCustomer: { select: { id: true, fullName: true } },
+} as const;
+
+export async function listLeads(
+  organizationId: string,
+  { limit = 500, offset = 0 }: { limit?: number; offset?: number } = {}
+): Promise<LeadWithRelations[]> {
+  return db.lead.findMany({
     where: { organizationId },
-    include: { customer: true },
+    include: LEAD_INCLUDE,
     orderBy: { createdAt: "desc" },
+    take: Math.min(limit, 500),
+    skip: offset,
   });
-
-  // Batch-fetch customers referenced by customerId
-  const linkedIds = [...new Set(leads.map((l) => l.customerId).filter(Boolean) as string[])];
-  const linkedCustomers = linkedIds.length
-    ? await db.customer.findMany({
-        where: { id: { in: linkedIds }, organizationId },
-        select: { id: true, fullName: true },
-      })
-    : [];
-  const linkedMap = new Map(linkedCustomers.map((c) => [c.id, c]));
-
-  return leads.map((lead) => ({
-    ...lead,
-    linkedCustomer: lead.customerId ? (linkedMap.get(lead.customerId) ?? null) : null,
-  }));
 }
 
 export async function getLead(
   organizationId: string,
   leadId: string
 ): Promise<LeadWithRelations | null> {
-  const lead = await db.lead.findFirst({
+  return db.lead.findFirst({
     where: { id: leadId, organizationId },
-    include: { customer: true },
+    include: LEAD_INCLUDE,
   });
-  if (!lead) return null;
-
-  const linkedCustomer = lead.customerId
-    ? await db.customer.findFirst({
-        where: { id: lead.customerId, organizationId },
-        select: { id: true, fullName: true },
-      })
-    : null;
-
-  return { ...lead, linkedCustomer };
 }
 
 export async function createLead(
@@ -174,7 +157,6 @@ export async function convertLead(
   if (!lead) throw new Error("Lead not found");
   if (lead.status === "converted") throw new Error("Lead is already converted");
 
-  // Resolve or create customer
   let customer: Customer;
   if (!data.createCustomer && data.existingCustomerId) {
     const existing = await db.customer.findFirst({
@@ -189,14 +171,13 @@ export async function convertLead(
       email: data.customerEmail,
       phone: data.customerPhone,
     });
-    // Link this customer back to the lead
+    // Link this customer back to the lead via Customer.leadId
     await db.customer.update({
       where: { id: customer.id },
       data: { leadId: lead.id },
     });
   }
 
-  // Optionally create a job
   let job: Job | null = null;
   if (data.createJob && data.jobTitle?.trim()) {
     job = await createJob(organizationId, actorId, {
@@ -208,7 +189,6 @@ export async function convertLead(
     });
   }
 
-  // Update lead to converted
   const updatedLead = await db.lead.update({
     where: { id: leadId },
     data: {

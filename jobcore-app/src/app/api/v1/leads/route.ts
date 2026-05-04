@@ -3,10 +3,17 @@ import { getApiOrg, apiResponse, apiError } from "@/lib/api";
 import { listLeads, createLead } from "@/lib/services/leads";
 import type { LeadStatus } from "@prisma/client";
 
-export async function GET() {
+function parsePagination(req: NextRequest): { limit: number; offset: number } {
+  const limit = Math.min(Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") ?? "50")), 100);
+  const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get("offset") ?? "0"));
+  return { limit, offset };
+}
+
+export async function GET(req: NextRequest) {
   const { org, error } = await getApiOrg();
   if (error) return error;
-  const leads = await listLeads(org!.id);
+  const { limit, offset } = parsePagination(req);
+  const leads = await listLeads(org!.id, { limit, offset });
   return apiResponse(leads);
 }
 

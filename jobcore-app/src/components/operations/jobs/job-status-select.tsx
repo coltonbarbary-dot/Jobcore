@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { updateJobStatusAction } from "@/app/(app)/operations/jobs/actions";
 import type { JobStatus } from "@prisma/client";
 
@@ -19,6 +20,7 @@ interface JobStatusSelectProps {
 }
 
 export function JobStatusSelect({ jobId, currentStatus }: JobStatusSelectProps) {
+  const router = useRouter();
   const [status, setStatus] = useState<JobStatus>(currentStatus);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -32,6 +34,7 @@ export function JobStatusSelect({ jobId, currentStatus }: JobStatusSelectProps) 
         setError(result.error);
       } else {
         setStatus(newStatus);
+        router.refresh();
       }
     });
   };

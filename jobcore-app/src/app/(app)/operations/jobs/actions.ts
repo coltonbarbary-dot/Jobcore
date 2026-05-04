@@ -14,6 +14,16 @@ import { redirect } from "next/navigation";
 
 type ActionState = { error?: string };
 
+function parseScheduledDate(
+  raw: string,
+  fieldLabel: string
+): { date: Date | null; error?: string } {
+  if (!raw) return { date: null };
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return { date: null, error: `Invalid ${fieldLabel} date` };
+  return { date: d };
+}
+
 function parseItems(formData: FormData): JobItemInput[] {
   const raw = formData.get("items") as string;
   if (!raw) return [];
@@ -46,6 +56,11 @@ export async function createJobAction(
   const scheduledStartRaw = formData.get("scheduledStart") as string;
   const scheduledEndRaw = formData.get("scheduledEnd") as string;
 
+  const start = parseScheduledDate(scheduledStartRaw, "scheduled start");
+  if (start.error) return { error: start.error };
+  const end = parseScheduledDate(scheduledEndRaw, "scheduled end");
+  if (end.error) return { error: end.error };
+
   let jobId: string;
   try {
     const job = await createJob(org.id, user.id, {
@@ -55,8 +70,8 @@ export async function createJobAction(
       status: (formData.get("status") as JobStatus) || "draft",
       priority: (formData.get("priority") as JobPriority) || "normal",
       jobType: (formData.get("jobType") as string)?.trim() || undefined,
-      scheduledStart: scheduledStartRaw ? new Date(scheduledStartRaw) : undefined,
-      scheduledEnd: scheduledEndRaw ? new Date(scheduledEndRaw) : undefined,
+      scheduledStart: start.date ?? undefined,
+      scheduledEnd: end.date ?? undefined,
       notes: (formData.get("notes") as string)?.trim() || undefined,
       items: parseItems(formData),
     });
@@ -84,6 +99,11 @@ export async function updateJobAction(
   const scheduledStartRaw = formData.get("scheduledStart") as string;
   const scheduledEndRaw = formData.get("scheduledEnd") as string;
 
+  const start = parseScheduledDate(scheduledStartRaw, "scheduled start");
+  if (start.error) return { error: start.error };
+  const end = parseScheduledDate(scheduledEndRaw, "scheduled end");
+  if (end.error) return { error: end.error };
+
   try {
     await updateJob(org.id, user.id, jobId, {
       title,
@@ -91,8 +111,8 @@ export async function updateJobAction(
       status: (formData.get("status") as JobStatus) || undefined,
       priority: (formData.get("priority") as JobPriority) || undefined,
       jobType: (formData.get("jobType") as string)?.trim() || undefined,
-      scheduledStart: scheduledStartRaw ? new Date(scheduledStartRaw) : null,
-      scheduledEnd: scheduledEndRaw ? new Date(scheduledEndRaw) : null,
+      scheduledStart: start.date,
+      scheduledEnd: end.date,
       notes: (formData.get("notes") as string)?.trim() || undefined,
       items: parseItems(formData),
     });

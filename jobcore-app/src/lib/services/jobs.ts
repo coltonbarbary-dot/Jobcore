@@ -39,7 +39,10 @@ function computeTotal(items: JobItemInput[]): number {
   return items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 }
 
-export async function listJobs(organizationId: string): Promise<JobWithRelations[]> {
+export async function listJobs(
+  organizationId: string,
+  { limit = 500, offset = 0 }: { limit?: number; offset?: number } = {}
+): Promise<JobWithRelations[]> {
   return db.job.findMany({
     where: { organizationId },
     include: {
@@ -47,6 +50,8 @@ export async function listJobs(organizationId: string): Promise<JobWithRelations
       items: { orderBy: { sortOrder: "asc" } },
     },
     orderBy: { createdAt: "desc" },
+    take: Math.min(limit, 500),
+    skip: offset,
   });
 }
 

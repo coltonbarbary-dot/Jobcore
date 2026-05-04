@@ -23,19 +23,24 @@ export async function listActivityForEntity(
   organizationId: string,
   entityType: string,
   entityId: string,
-  limit = 50
+  { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {}
 ) {
   return db.activityLog.findMany({
     where: { organizationId, entityType, entityId },
     orderBy: { createdAt: "desc" },
-    take: limit,
+    take: Math.min(limit, 200),
+    skip: offset,
   });
 }
 
-export async function listOrgActivity(organizationId: string, limit = 50) {
+export async function listOrgActivity(
+  organizationId: string,
+  { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {}
+) {
   return db.activityLog.findMany({
     where: { organizationId },
     orderBy: { createdAt: "desc" },
-    take: limit,
+    take: Math.min(limit, 200),
+    skip: offset,
   });
 }

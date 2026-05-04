@@ -5,7 +5,7 @@ import { listActivityForEntity } from "@/lib/services/activity";
 const VALID_ENTITY_TYPES = ["customer", "lead", "job", "estimate", "invoice"];
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ entityType: string; entityId: string }> }
 ) {
   const { entityType, entityId } = await params;
@@ -16,6 +16,8 @@ export async function GET(
     return apiError(`entityType must be one of: ${VALID_ENTITY_TYPES.join(", ")}`);
   }
 
-  const logs = await listActivityForEntity(org!.id, entityType, entityId);
+  const limit = Math.min(Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") ?? "50")), 200);
+  const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get("offset") ?? "0"));
+  const logs = await listActivityForEntity(org!.id, entityType, entityId, { limit, offset });
   return apiResponse(logs);
 }

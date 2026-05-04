@@ -24,11 +24,16 @@ export type CreateCustomerData = {
 
 export type UpdateCustomerData = Partial<CreateCustomerData>;
 
-export async function listCustomers(organizationId: string): Promise<CustomerWithCounts[]> {
+export async function listCustomers(
+  organizationId: string,
+  { limit = 500, offset = 0 }: { limit?: number; offset?: number } = {}
+): Promise<CustomerWithCounts[]> {
   return db.customer.findMany({
     where: { organizationId },
     include: { _count: { select: { jobs: true, estimates: true, invoices: true } } },
     orderBy: { createdAt: "desc" },
+    take: Math.min(limit, 500),
+    skip: offset,
   });
 }
 

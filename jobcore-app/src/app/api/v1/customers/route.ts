@@ -2,10 +2,17 @@ import { NextRequest } from "next/server";
 import { getApiOrg, apiResponse, apiError } from "@/lib/api";
 import { listCustomers, createCustomer } from "@/lib/services/customers";
 
-export async function GET() {
+function parsePagination(req: NextRequest): { limit: number; offset: number } {
+  const limit = Math.min(Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") ?? "50")), 100);
+  const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get("offset") ?? "0"));
+  return { limit, offset };
+}
+
+export async function GET(req: NextRequest) {
   const { org, error } = await getApiOrg();
   if (error) return error;
-  const customers = await listCustomers(org!.id);
+  const { limit, offset } = parsePagination(req);
+  const customers = await listCustomers(org!.id, { limit, offset });
   return apiResponse(customers);
 }
 
