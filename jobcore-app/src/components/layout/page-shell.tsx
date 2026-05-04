@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 interface PageShellProps {
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   action?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
