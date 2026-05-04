@@ -1,0 +1,457 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum OrgPlan {
+  free
+  pro
+  enterprise
+}
+
+enum UserRole {
+  owner
+  admin
+  member
+}
+
+enum LeadStatus {
+  new
+  contacted
+  qualified
+  converted
+  lost
+}
+
+enum JobStatus {
+  draft
+  scheduled
+  in_progress
+  on_hold
+  completed
+  cancelled
+}
+
+enum JobPriority {
+  low
+  normal
+  high
+  urgent
+}
+
+enum EstimateStatus {
+  draft
+  sent
+  viewed
+  approved
+  declined
+  expired
+}
+
+enum InvoiceStatus {
+  draft
+  sent
+  viewed
+  partial
+  paid
+  void
+  overdue
+}
+
+enum PaymentMethod {
+  stripe
+  cash
+  check
+  bank_transfer
+  other
+}
+
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+  refunded
+}
+
+enum ActorType {
+  user
+  system
+  jojo
+}
+
+enum JojoRole {
+  user
+  assistant
+  tool
+}
+
+// ─── Organizations ────────────────────────────────────────────────────────────
+
+model Organization {
+  id                     String   @id @default(uuid())
+  clerkOrganizationId    String   @unique
+  name                   String
+  slug                   String   @unique
+  ownerId                String
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  plan                   OrgPlan  @default(free)
+  logoUrl                String?
+  businessType           String?
+  phone                  String?
+  address                Json?
+  onboardingComplete     Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  users             User[]
+  leads             Lead[]
+  customers         Customer[]
+  jobs              Job[]
+  estimates         Estimate[]
+  invoices          Invoice[]
+  payments          Payment[]
+  files             File[]
+  activityLogs      ActivityLog[]
+  jojoConversations JojoConversation[]
+  expenses          Expense[]
+
+  @@map("organizations")
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id             String       @id // Clerk user ID
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  fullName       String
+  role           UserRole     @default(member)
+  avatarUrl      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("users")
+}
+
+// ─── Customers ────────────────────────────────────────────────────────────────
+
+model Customer {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  leadId          String?      @unique
+  lead            Lead?        @relation(fields: [leadId], references: [id])
+  fullName        String
+  email           String?
+  phone           String?
+  companyName     String?
+  billingAddress  Json?
+  serviceAddress  Json?
+  tags            String[]     @default([])
+  notes           String?
+  stripeCustomerId String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  jobs      Job[]
+  estimates Estimate[]
+  invoices  Invoice[]
+  files     File[]
+
+  @@map("customers")
+}
+
+// ─── Leads ───────────────────────────────────────────────────────────────────
+
+model Lead {
+  id               String       @id @default(uuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId       String?
+  source           String?
+  status           LeadStatus   @default(new)
+  title            String
+  description      String?
+  budgetEstimate   Decimal?     @db.Decimal(12, 2)
+  assignedTo       String?
+  convertedToJobId String?
+  notes            String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  customer Customer?
+
+  @@map("leads")
+}
+
+// ─── Jobs ─────────────────────────────────────────────────────────────────────
+
+model Job {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId      String
+  customer        Customer     @relation(fields: [customerId], references: [id])
+  leadId          String?
+  estimateId      String?      @unique
+  estimate        Estimate?    @relation(fields: [estimateId], references: [id])
+  title           String
+  description     String?
+  status          JobStatus    @default(draft)
+  priority        JobPriority  @default(normal)
+  jobType         String?
+  locationAddress Json?
+  scheduledStart  DateTime?
+  scheduledEnd    DateTime?
+  actualStart     DateTime?
+  actualEnd       DateTime?
+  assignedTo      String[]     @default([])
+  totalAmount     Decimal?     @db.Decimal(12, 2)
+  notes           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  items    JobItem[]
+  invoices Invoice[]
+  files    File[]
+  expenses Expense[]
+
+  @@map("jobs")
+}
+
+model JobItem {
+  id          String  @id @default(uuid())
+  jobId       String
+  job         Job     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Decimal @db.Decimal(10, 3)
+  unitPrice   Decimal @db.Decimal(12, 2)
+  subtotal    Decimal @db.Decimal(12, 2)
+  sortOrder   Int     @default(0)
+
+  @@map("job_items")
+}
+
+// ─── Estimates ────────────────────────────────────────────────────────────────
+
+model Estimate {
+  id              String         @id @default(uuid())
+  organizationId  String
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId      String
+  customer        Customer       @relation(fields: [customerId], references: [id])
+  estimateNumber  String
+  title           String
+  status          EstimateStatus @default(draft)
+  validUntil      DateTime?
+  subtotal        Decimal        @db.Decimal(12, 2) @default(0)
+  taxRate         Decimal        @db.Decimal(5, 4)  @default(0)
+  taxAmount       Decimal        @db.Decimal(12, 2) @default(0)
+  total           Decimal        @db.Decimal(12, 2) @default(0)
+  notes           String?
+  terms           String?
+  sentAt          DateTime?
+  viewedAt        DateTime?
+  approvedAt      DateTime?
+  declinedAt      DateTime?
+  approvalToken   String?        @unique
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  items EstimateItem[]
+  job   Job?
+
+  @@unique([organizationId, estimateNumber])
+  @@map("estimates")
+}
+
+model EstimateItem {
+  id          String   @id @default(uuid())
+  estimateId  String
+  estimate    Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Decimal  @db.Decimal(10, 3)
+  unitPrice   Decimal  @db.Decimal(12, 2)
+  subtotal    Decimal  @db.Decimal(12, 2)
+  sortOrder   Int      @default(0)
+
+  @@map("estimate_items")
+}
+
+// ─── Invoices ─────────────────────────────────────────────────────────────────
+
+model Invoice {
+  id                     String        @id @default(uuid())
+  organizationId         String
+  organization           Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId             String
+  customer               Customer      @relation(fields: [customerId], references: [id])
+  jobId                  String?       // nullable — standalone invoices allowed
+  job                    Job?          @relation(fields: [jobId], references: [id])
+  estimateId             String?
+  invoiceNumber          String
+  status                 InvoiceStatus @default(draft)
+  subtotal               Decimal       @db.Decimal(12, 2) @default(0)
+  taxRate                Decimal       @db.Decimal(5, 4)  @default(0)
+  taxAmount              Decimal       @db.Decimal(12, 2) @default(0)
+  discountAmount         Decimal       @db.Decimal(12, 2) @default(0)
+  total                  Decimal       @db.Decimal(12, 2) @default(0)
+  amountPaid             Decimal       @db.Decimal(12, 2) @default(0)
+  amountDue              Decimal       @db.Decimal(12, 2) @default(0)
+  dueDate                DateTime?
+  sentAt                 DateTime?
+  viewedAt               DateTime?
+  paidAt                 DateTime?
+  stripePaymentIntentId  String?
+  stripeInvoiceId        String?
+  paymentLink            String?
+  notes                  String?
+  terms                  String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@unique([organizationId, invoiceNumber])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Decimal @db.Decimal(10, 3)
+  unitPrice   Decimal @db.Decimal(12, 2)
+  subtotal    Decimal @db.Decimal(12, 2)
+  sortOrder   Int     @default(0)
+
+  @@map("invoice_items")
+}
+
+// ─── Payments ─────────────────────────────────────────────────────────────────
+
+model Payment {
+  id                    String        @id @default(uuid())
+  organizationId        String
+  organization          Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoiceId             String
+  invoice               Invoice       @relation(fields: [invoiceId], references: [id])
+  amount                Decimal       @db.Decimal(12, 2)
+  method                PaymentMethod
+  status                PaymentStatus
+  stripePaymentIntentId String?       @unique
+  stripeChargeId        String?
+  referenceNumber       String?
+  paidAt                DateTime?
+  notes                 String?
+  createdAt             DateTime      @default(now())
+
+  @@map("payments")
+}
+
+// ─── Files ────────────────────────────────────────────────────────────────────
+
+model File {
+  id              String       @id @default(uuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedBy      String
+  customerId      String?
+  customer        Customer?    @relation(fields: [customerId], references: [id])
+  jobId           String?
+  job             Job?         @relation(fields: [jobId], references: [id])
+  entityType      String       // job | customer | estimate | invoice | lead
+  entityId        String
+  fileName        String
+  storageKey      String
+  mimeType        String?
+  fileSizeBytes   BigInt?
+  isDeleted       Boolean      @default(false)
+  deletedAt       DateTime?
+  sharedToken     String?      @unique
+  sharedExpiresAt DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("files")
+}
+
+// ─── Activity Logs ────────────────────────────────────────────────────────────
+
+model ActivityLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorId        String       // user ID, 'system', or 'jojo'
+  actorType      ActorType
+  action         String       // e.g. "job.status_changed", "invoice.sent"
+  entityType     String
+  entityId       String
+  metadata       Json?
+  ipAddress      String?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([entityType, entityId])
+  @@map("activity_logs")
+}
+
+// ─── JoJo ─────────────────────────────────────────────────────────────────────
+
+model JojoConversation {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  title          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  messages JojoMessage[]
+
+  @@map("jojo_conversations")
+}
+
+model JojoMessage {
+  id             String           @id @default(uuid())
+  conversationId String
+  conversation   JojoConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           JojoRole
+  content        String
+  toolCalls      Json?
+  toolResults    Json?
+  model          String?
+  tokensUsed     Int?
+  createdAt      DateTime         @default(now())
+
+  @@map("jojo_messages")
+}
+
+// ─── Expenses ─────────────────────────────────────────────────────────────────
+
+model Expense {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  jobId          String?
+  job            Job?         @relation(fields: [jobId], references: [id])
+  category       String
+  vendor         String?
+  amount         Decimal      @db.Decimal(12, 2)
+  description    String?
+  receiptFileId  String?
+  date           DateTime     @db.Date
+  createdBy      String
+  createdAt      DateTime     @default(now())
+
+  @@map("expenses")
+}
