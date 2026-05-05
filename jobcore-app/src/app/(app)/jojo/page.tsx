@@ -1,10 +1,13 @@
-import { ComingSoonPage } from "@/components/layout/page-shell";
+import { PageShell } from "@/components/layout/page-shell";
+import { JojoChat } from "@/components/jojo/jojo-chat";
 
 export default function JojoPage() {
   return (
-    <ComingSoonPage
+    <PageShell
       title="JoJo"
-      description="Your AI assistant. Ask questions, create records, and get things done. Coming in Phase 8."
-    />
+      description={<span className="text-sm text-[#6b7280]">Your AI assistant</span>}
+    >
+      <JojoChat />
+    </PageShell>
   );
 }
