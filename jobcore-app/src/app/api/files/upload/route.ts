@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  if (!["job", "customer", "estimate", "invoice", "lead"].includes(entityType)) {
+  if (!["job", "customer", "estimate", "invoice", "lead", "expense"].includes(entityType)) {
     return NextResponse.json({ error: "Invalid entityType" }, { status: 400 });
   }
 

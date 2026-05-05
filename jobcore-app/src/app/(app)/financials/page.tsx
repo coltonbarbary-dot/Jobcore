@@ -1,10 +1,5 @@
-import { ComingSoonPage } from "@/components/layout/page-shell";
+import { redirect } from "next/navigation";
 
 export default function FinancialsPage() {
-  return (
-    <ComingSoonPage
-      title="Financials"
-      description="Expenses, reports, and financial tools. Coming in Phase 9."
-    />
-  );
+  redirect("/financials/expenses");
 }
