@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { File as PrismaFile } from "@prisma/client";
+import type { ExpenseWithReceipt } from "@/lib/services/expenses";
 import { deleteReceiptAction, linkReceiptAction } from "@/app/(app)/financials/expenses/actions";
 
 function formatBytes(bytes: bigint | number | null | undefined): string {
@@ -15,7 +15,7 @@ function formatBytes(bytes: bigint | number | null | undefined): string {
 
 interface ReceiptSectionProps {
   expenseId: string;
-  receiptFile: PrismaFile | null;
+  receiptFile: ExpenseWithReceipt["receiptFile"];
 }
 
 export function ReceiptSection({ expenseId, receiptFile }: ReceiptSectionProps) {

@@ -373,7 +373,7 @@ model File {
   customer        Customer?    @relation(fields: [customerId], references: [id])
   jobId           String?
   job             Job?         @relation(fields: [jobId], references: [id])
-  entityType      String       // job | customer | estimate | invoice | lead
+  entityType      String       // job | customer | estimate | invoice | lead | expense
   entityId        String
   fileName        String
   storageKey      String
@@ -385,6 +385,8 @@ model File {
   sharedExpiresAt DateTime?
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+
+  expenseReceipt  Expense?     @relation("ExpenseReceipt")
 
   @@map("files")
 }
@@ -452,7 +454,8 @@ model Expense {
   vendor         String?
   amount         Decimal      @db.Decimal(12, 2)
   description    String?
-  receiptFileId  String?
+  receiptFileId  String?      @unique
+  receiptFile    File?        @relation("ExpenseReceipt", fields: [receiptFileId], references: [id])
   date           DateTime     @db.Date
   createdBy      String
   createdAt      DateTime     @default(now())

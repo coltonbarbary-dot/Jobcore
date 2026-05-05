@@ -19,7 +19,6 @@ import {
   Receipt,
   TrendingUp,
   BarChart2,
-  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -30,9 +29,8 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
   children?: {
     label: string;
-    href?: string;
+    href: string;
     icon: React.ComponentType<{ className?: string }>;
-    comingSoon?: boolean;
   }[];
 };
 
@@ -64,10 +62,6 @@ const NAV_ITEMS: NavItem[] = [
     children: [
       { label: "Expenses", href: "/financials/expenses", icon: TrendingUp },
       { label: "Reports", href: "/financials/reports", icon: BarChart2 },
-      { label: "Tax Documents", icon: FileText, comingSoon: true },
-      { label: "Bills", icon: Receipt, comingSoon: true },
-      { label: "Budget", icon: DollarSign, comingSoon: true },
-      { label: "Payroll", icon: Users, comingSoon: true },
     ],
   },
   {
@@ -114,26 +108,11 @@ function NavGroup({ item }: { item: NavItem }) {
       {open && (
         <div className="mt-1 ml-3 border-l border-[#1f2937] pl-3 space-y-0.5">
           {item.children?.map((child) => {
-            if (child.comingSoon) {
-              return (
-                <div
-                  key={child.label}
-                  className="flex items-center gap-3 rounded-md px-3 py-1.5 text-xs text-[#4b5563] cursor-default"
-                >
-                  <Lock className="h-3 w-3 shrink-0" />
-                  <span>{child.label}</span>
-                  <span className="ml-auto text-[10px] text-[#374151] bg-[#111827] px-1.5 py-0.5 rounded">
-                    Soon
-                  </span>
-                </div>
-              );
-            }
-
-            const active = child.href ? pathname.startsWith(child.href) : false;
+            const active = pathname.startsWith(child.href);
             return (
               <Link
                 key={child.label}
-                href={child.href!}
+                href={child.href}
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-1.5 text-sm transition-colors",
                   active

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { type Expense, type File as PrismaFile } from "@prisma/client";
+import { type Expense } from "@prisma/client";
 import { logActivity } from "./activity";
 
 export const EXPENSE_CATEGORIES = [
@@ -18,7 +18,7 @@ export const EXPENSE_CATEGORIES = [
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
 export type ExpenseWithReceipt = Expense & {
-  receiptFile: PrismaFile | null;
+  receiptFile: { id: string; fileName: string; mimeType: string | null; fileSizeBytes: bigint | null; storageKey: string } | null;
   job: { id: string; title: string } | null;
 };
 
@@ -50,7 +50,7 @@ export async function listExpenses(
   if (filters.from) dateFilter.gte = filters.from;
   if (filters.to) dateFilter.lte = filters.to;
 
-  const expenses = await db.expense.findMany({
+  return db.expense.findMany({
     where: {
       organizationId,
       ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
@@ -59,24 +59,13 @@ export async function listExpenses(
     },
     include: {
       job: { select: { id: true, title: true } },
+      receiptFile: {
+        select: { id: true, fileName: true, mimeType: true, fileSizeBytes: true, storageKey: true },
+      },
     },
     orderBy: { date: "desc" },
     take: 500,
   });
-
-  const fileIds = expenses.map((e) => e.receiptFileId).filter(Boolean) as string[];
-  const fileMap = new Map<string, PrismaFile>();
-  if (fileIds.length > 0) {
-    const files = await db.file.findMany({
-      where: { id: { in: fileIds }, isDeleted: false },
-    });
-    for (const f of files) fileMap.set(f.id, f);
-  }
-
-  return expenses.map((e) => ({
-    ...e,
-    receiptFile: e.receiptFileId ? (fileMap.get(e.receiptFileId) ?? null) : null,
-  }));
 }
 
 // ─── Get single ────────────────────────────────────────────────────────────
@@ -85,22 +74,15 @@ export async function getExpense(
   organizationId: string,
   expenseId: string
 ): Promise<ExpenseWithReceipt | null> {
-  const expense = await db.expense.findFirst({
+  return db.expense.findFirst({
     where: { id: expenseId, organizationId },
     include: {
       job: { select: { id: true, title: true } },
+      receiptFile: {
+        select: { id: true, fileName: true, mimeType: true, fileSizeBytes: true, storageKey: true },
+      },
     },
   });
-  if (!expense) return null;
-
-  let receiptFile: PrismaFile | null = null;
-  if (expense.receiptFileId) {
-    receiptFile = await db.file.findFirst({
-      where: { id: expense.receiptFileId, isDeleted: false },
-    });
-  }
-
-  return { ...expense, receiptFile };
 }
 
 // ─── Create ────────────────────────────────────────────────────────────────
