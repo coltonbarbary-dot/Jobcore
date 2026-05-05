@@ -105,6 +105,7 @@ model Organization {
   businessType           String?
   phone                  String?
   address                Json?
+  timezone               String   @default("America/New_York")
   onboardingComplete     Boolean  @default(false)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

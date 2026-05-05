@@ -4,16 +4,30 @@ import { listScheduledJobs } from "@/lib/services/jobs";
 import { PageShell } from "@/components/layout/page-shell";
 import type { JobWithRelations } from "@/lib/services/jobs";
 import type { JobStatus } from "@prisma/client";
+import {
+  localComponents,
+  localDateStr,
+  currentYM,
+  startOfMonthUTC,
+  startOfNextMonthUTC,
+  daysInMonth,
+  firstDayOfWeek,
+  formatTime,
+  formatDayHeading,
+  monthLabel,
+  localToUTC,
+} from "@/lib/tz";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function parseYearMonth(raw: string | undefined): { year: number; month: number; ym: string } {
-  const now = new Date();
-  const fallback = {
-    year: now.getUTCFullYear(),
-    month: now.getUTCMonth() + 1,
-    ym: `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`,
-  };
+function parseYearMonth(
+  raw: string | undefined,
+  tz: string
+): { year: number; month: number; ym: string } {
+  const now = currentYM(tz);
+  const [ny, nm] = now.split("-").map(Number);
+  const fallback = { year: ny, month: nm, ym: now };
+
   if (!raw) return fallback;
   const match = /^(\d{4})-(\d{2})$/.exec(raw);
   if (!match) return fallback;
@@ -25,46 +39,20 @@ function parseYearMonth(raw: string | undefined): { year: number; month: number;
 
 function shiftMonth(ym: string, delta: number): string {
   const [y, m] = ym.split("-").map(Number);
-  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  const total = m - 1 + delta;
+  const newYear = y + Math.floor(total / 12);
+  const newMonth = ((total % 12) + 12) % 12 + 1;
+  return `${newYear}-${String(newMonth).padStart(2, "0")}`;
 }
 
-function todayYM(): string {
-  const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-
-function formatTime(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: "UTC",
-  }).format(date);
-}
-
-function formatDayHeading(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(date);
-}
-
-function monthLabel(year: number, month: number): string {
-  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
-    .format(new Date(Date.UTC(year, month - 1, 1)));
-}
-
-// Group jobs by their UTC date string YYYY-MM-DD
-function groupByDate(jobs: JobWithRelations[]): Map<string, JobWithRelations[]> {
+/** Group jobs by their LOCAL date string in org timezone */
+function groupByDate(
+  jobs: JobWithRelations[],
+  tz: string
+): Map<string, JobWithRelations[]> {
   const map = new Map<string, JobWithRelations[]>();
   for (const job of jobs) {
-    const key = job.scheduledStart!.toISOString().slice(0, 10);
+    const key = localDateStr(job.scheduledStart!, tz);
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(job);
   }
@@ -100,14 +88,14 @@ const STATUS_LABEL: Record<JobStatus, string> = {
 
 // ─── Job chip (month cell) ────────────────────────────────────────────────────
 
-function JobChip({ job }: { job: JobWithRelations }) {
+function JobChip({ job, tz }: { job: JobWithRelations; tz: string }) {
   return (
     <Link
       href={`/operations/jobs/${job.id}`}
       className={`block rounded px-1.5 py-0.5 text-[11px] font-medium leading-snug truncate hover:opacity-80 transition-opacity ${STATUS_CHIP[job.status]}`}
       title={`${job.title} — ${job.customer.fullName} (${STATUS_LABEL[job.status]})`}
     >
-      {formatTime(job.scheduledStart!)} {job.title}
+      {formatTime(job.scheduledStart!, tz)} {job.title}
     </Link>
   );
 }
@@ -119,24 +107,27 @@ function MonthGrid({
   month,
   ym,
   jobs,
+  tz,
 }: {
   year: number;
   month: number;
   ym: string;
   jobs: JobWithRelations[];
+  tz: string;
 }) {
-  const jobsByDate = groupByDate(jobs);
+  const jobsByDate = groupByDate(jobs, tz);
 
-  const firstDayOfMonth = new Date(Date.UTC(year, month - 1, 1));
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-  const startOffset = firstDayOfMonth.getUTCDay(); // 0=Sun
-  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+  const numDays = daysInMonth(year, month, tz);
+  const startOffset = firstDayOfWeek(year, month, tz);
+  const totalCells = Math.ceil((startOffset + numDays) / 7) * 7;
 
-  const nowStr = new Date().toISOString().slice(0, 10);
-  const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const todayLocalStr = localDateStr(new Date(), tz);
+  const currentYMStr = currentYM(tz);
   const prev = shiftMonth(ym, -1);
   const next = shiftMonth(ym, +1);
-  const isCurrentMonth = ym === todayYM();
+  const isCurrentMonth = ym === currentYMStr;
+
+  const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
     <div>
@@ -150,7 +141,7 @@ function MonthGrid({
             ←
           </Link>
           <h2 className="text-base font-semibold text-[#0a0a0a] min-w-[160px] text-center">
-            {monthLabel(year, month)}
+            {monthLabel(year, month, tz)}
           </h2>
           <Link
             href={`/calendar?view=month&month=${next}`}
@@ -182,12 +173,15 @@ function MonthGrid({
       <div className="grid grid-cols-7 border-l border-t border-[#e5e7eb] rounded-lg overflow-hidden">
         {Array.from({ length: totalCells }, (_, i) => {
           const dayNum = i - startOffset + 1;
-          const inMonth = dayNum >= 1 && dayNum <= daysInMonth;
+          const inMonth = dayNum >= 1 && dayNum <= numDays;
+
+          // Build the LOCAL date string for this cell
           const dateStr = inMonth
             ? `${year}-${String(month).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`
             : null;
+
           const dayJobs = dateStr ? (jobsByDate.get(dateStr) ?? []) : [];
-          const isToday = dateStr === nowStr;
+          const isToday = dateStr === todayLocalStr;
 
           return (
             <div
@@ -201,9 +195,7 @@ function MonthGrid({
                   <div className="flex justify-end mb-1">
                     <span
                       className={`text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full leading-none ${
-                        isToday
-                          ? "bg-[#0a0a0a] text-white"
-                          : "text-[#6b7280]"
+                        isToday ? "bg-[#0a0a0a] text-white" : "text-[#6b7280]"
                       }`}
                     >
                       {dayNum}
@@ -211,7 +203,7 @@ function MonthGrid({
                   </div>
                   <div className="space-y-0.5">
                     {dayJobs.slice(0, 3).map((job) => (
-                      <JobChip key={job.id} job={job} />
+                      <JobChip key={job.id} job={job} tz={tz} />
                     ))}
                     {dayJobs.length > 3 && (
                       <p className="text-[11px] text-[#9ca3af] pl-1 font-medium">
@@ -228,7 +220,7 @@ function MonthGrid({
 
       {jobs.length === 0 && (
         <p className="text-center text-sm text-[#9ca3af] mt-6">
-          No jobs scheduled in {monthLabel(year, month)}.{" "}
+          No jobs scheduled in {monthLabel(year, month, tz)}.{" "}
           <Link href="/operations/jobs" className="text-[#2563eb] hover:underline">
             Schedule a job →
           </Link>
@@ -240,15 +232,23 @@ function MonthGrid({
 
 // ─── List / schedule view ─────────────────────────────────────────────────────
 
-function ListView({ jobs, from }: { jobs: JobWithRelations[]; from: Date }) {
-  const jobsByDate = groupByDate(jobs);
+function ListView({
+  jobs,
+  from,
+  tz,
+}: {
+  jobs: JobWithRelations[];
+  from: Date;
+  tz: string;
+}) {
+  const jobsByDate = groupByDate(jobs, tz);
   const sortedDates = Array.from(jobsByDate.keys()).sort();
-  const fromStr = from.toISOString().slice(0, 10);
+  const fromStr = localDateStr(from, tz);
 
   return (
     <div>
       <p className="text-xs text-[#9ca3af] mb-5">
-        Showing jobs scheduled from {formatDayHeading(fromStr)} — next 90 days
+        Showing jobs scheduled from {formatDayHeading(fromStr, tz)} — next 90 days
       </p>
 
       {sortedDates.length === 0 ? (
@@ -268,7 +268,7 @@ function ListView({ jobs, from }: { jobs: JobWithRelations[]; from: Date }) {
             return (
               <div key={dateStr}>
                 <h3 className="text-xs font-semibold text-[#6b7280] uppercase tracking-wide mb-2 pb-1.5 border-b border-[#f3f4f6]">
-                  {formatDayHeading(dateStr)}
+                  {formatDayHeading(dateStr, tz)}
                 </h3>
                 <div className="space-y-2">
                   {dayJobs.map((job) => (
@@ -277,22 +277,17 @@ function ListView({ jobs, from }: { jobs: JobWithRelations[]; from: Date }) {
                       href={`/operations/jobs/${job.id}`}
                       className="flex items-center gap-3 rounded-lg border border-[#e5e7eb] px-4 py-3 bg-white hover:bg-[#f9fafb] transition-colors group"
                     >
-                      {/* Status dot */}
                       <div className={`h-2.5 w-2.5 rounded-full shrink-0 ${STATUS_DOT[job.status]}`} />
-
-                      {/* Time block */}
                       <div className="w-24 shrink-0">
                         <p className="text-sm font-semibold text-[#374151] tabular-nums">
-                          {formatTime(job.scheduledStart!)}
+                          {formatTime(job.scheduledStart!, tz)}
                         </p>
                         {job.scheduledEnd && (
                           <p className="text-xs text-[#9ca3af] tabular-nums">
-                            – {formatTime(job.scheduledEnd)}
+                            – {formatTime(job.scheduledEnd, tz)}
                           </p>
                         )}
                       </div>
-
-                      {/* Job info */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-[#0a0a0a] truncate group-hover:underline">
                           {job.title}
@@ -304,8 +299,6 @@ function ListView({ jobs, from }: { jobs: JobWithRelations[]; from: Date }) {
                           )}
                         </p>
                       </div>
-
-                      {/* Status pill */}
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0 ${STATUS_CHIP[job.status]}`}
                       >
@@ -333,23 +326,25 @@ export default async function CalendarPage({
   const { view = "month", month: monthParam } = await searchParams;
   const { org } = await requireOrg();
 
+  const tz = org.timezone ?? "America/New_York";
   const isListView = view === "list";
-  const { year, month, ym } = parseYearMonth(monthParam);
+  const { year, month, ym } = parseYearMonth(monthParam, tz);
 
   let jobs: JobWithRelations[];
   let listFrom: Date;
 
   if (isListView) {
-    listFrom = new Date();
-    listFrom.setUTCHours(0, 0, 0, 0);
-    const listTo = new Date(listFrom);
-    listTo.setUTCDate(listTo.getUTCDate() + 90);
+    // Start of today in org timezone
+    const now = new Date();
+    const { year: ty, month: tm, day: td } = localComponents(now, tz);
+    listFrom = localToUTC(ty, tm, td, 0, 0, tz);
+    const listTo = new Date(listFrom.getTime() + 90 * 86_400_000);
     jobs = await listScheduledJobs(org.id, { from: listFrom, to: listTo });
   } else {
-    const from = new Date(Date.UTC(year, month - 1, 1));
-    const to = new Date(Date.UTC(year, month, 1));
-    jobs = await listScheduledJobs(org.id, { from, to });
-    listFrom = from; // unused for month view, satisfies TS
+    // Query the full month in org timezone — start/end are local-midnight in UTC
+    listFrom = startOfMonthUTC(year, month, tz);
+    const to = startOfNextMonthUTC(year, month, tz);
+    jobs = await listScheduledJobs(org.id, { from: listFrom, to });
   }
 
   const viewToggle = (
@@ -382,15 +377,15 @@ export default async function CalendarPage({
       title="Calendar"
       description={
         <span className="text-sm text-[#6b7280]">
-          {jobs.length} job{jobs.length !== 1 ? "s" : ""} scheduled
+          {jobs.length} job{jobs.length !== 1 ? "s" : ""}
         </span>
       }
       action={viewToggle}
     >
       {isListView ? (
-        <ListView jobs={jobs} from={listFrom} />
+        <ListView jobs={jobs} from={listFrom} tz={tz} />
       ) : (
-        <MonthGrid year={year} month={month} ym={ym} jobs={jobs} />
+        <MonthGrid year={year} month={month} ym={ym} jobs={jobs} tz={tz} />
       )}
     </PageShell>
   );

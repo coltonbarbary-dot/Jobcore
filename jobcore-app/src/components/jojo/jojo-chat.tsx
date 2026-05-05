@@ -20,12 +20,17 @@ type ScheduleSlot = {
   scheduledStart: string;
   scheduledEnd: string;
   reason: string;
+  durationMinutes: number;
+  durationAssumed: boolean;
 };
 
 type ScheduleSuggestion = {
   jobId: string;
   jobTitle: string;
   customerName: string | null;
+  timezone: string;
+  durationMinutes: number;
+  durationAssumed: boolean;
   slot: ScheduleSlot;
   alternatives: ScheduleSlot[];
 };
@@ -52,7 +57,7 @@ function EntityChip({ entity }: { entity: CreatedEntity }) {
   );
 }
 
-function formatSlotTime(isoStr: string): string {
+function formatSlotTime(isoStr: string, tz: string): string {
   return new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     month: "long",
@@ -60,17 +65,26 @@ function formatSlotTime(isoStr: string): string {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: "UTC",
+    timeZone: tz,
   }).format(new Date(isoStr));
 }
 
-function formatEndTime(isoStr: string): string {
+function formatEndTime(isoStr: string, tz: string): string {
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: "UTC",
+    timeZone: tz,
   }).format(new Date(isoStr));
+}
+
+function formatDurationLabel(minutes: number, assumed: boolean): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  const label = h > 0
+    ? `${h}h${m > 0 ? ` ${m}m` : ""}`
+    : `${m}m`;
+  return assumed ? `${label} (assumed — no duration on job)` : label;
 }
 
 interface ScheduleSuggestionCardProps {
@@ -99,7 +113,11 @@ function ScheduleSuggestionCard({ suggestion, onApproved, onDismiss }: ScheduleS
       });
       const data = await res.json();
       if (!res.ok) {
-        setApproveError(data.error ?? "Failed to schedule job");
+        // 409 = slot taken since suggestion was generated — guide user to re-request
+        const msg = data.code === "SLOT_CONFLICT"
+          ? `${data.error} Ask JoJo for a new suggestion.`
+          : (data.error ?? "Failed to schedule job");
+        setApproveError(msg);
         return;
       }
       setApproved(true);
@@ -108,10 +126,13 @@ function ScheduleSuggestionCard({ suggestion, onApproved, onDismiss }: ScheduleS
     });
   }
 
+  const tz = suggestion.timezone;
+
   if (approved) {
     return (
       <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3 text-sm text-[#16a34a]">
-        ✓ Scheduled! <a href={`/operations/jobs/${suggestion.jobId}`} className="underline font-medium">View job →</a>
+        ✓ Scheduled for {formatSlotTime(suggestion.slot.scheduledStart, tz)}.{" "}
+        <a href={`/operations/jobs/${suggestion.jobId}`} className="underline font-medium">View job →</a>
       </div>
     );
   }
@@ -126,11 +147,14 @@ function ScheduleSuggestionCard({ suggestion, onApproved, onDismiss }: ScheduleS
         )}
       </div>
 
-      <div className="rounded-lg bg-[#f9fafb] border border-[#e5e7eb] px-3 py-2.5 space-y-0.5">
+      <div className="rounded-lg bg-[#f9fafb] border border-[#e5e7eb] px-3 py-2.5 space-y-1">
         <p className="text-sm font-medium text-[#0a0a0a]">
-          {formatSlotTime(suggestion.slot.scheduledStart)} – {formatEndTime(suggestion.slot.scheduledEnd)}
+          {formatSlotTime(suggestion.slot.scheduledStart, tz)} – {formatEndTime(suggestion.slot.scheduledEnd, tz)}
         </p>
         <p className="text-xs text-[#6b7280]">{suggestion.slot.reason}</p>
+        <p className={`text-xs ${suggestion.durationAssumed ? "text-[#b45309]" : "text-[#9ca3af]"}`}>
+          Duration: {formatDurationLabel(suggestion.durationMinutes, suggestion.durationAssumed)}
+        </p>
       </div>
 
       {suggestion.alternatives.length > 0 && (
@@ -138,7 +162,7 @@ function ScheduleSuggestionCard({ suggestion, onApproved, onDismiss }: ScheduleS
           <p className="text-xs text-[#9ca3af] font-medium">Alternatives:</p>
           {suggestion.alternatives.map((alt, i) => (
             <p key={i} className="text-xs text-[#6b7280]">
-              • {formatSlotTime(alt.scheduledStart)} – {formatEndTime(alt.scheduledEnd)}
+              • {formatSlotTime(alt.scheduledStart, tz)} – {formatEndTime(alt.scheduledEnd, tz)}
             </p>
           ))}
         </div>
@@ -347,7 +371,7 @@ export function JojoChat({ initialConversationId, scheduleJobId }: JojoChatProps
                   {
                     id: `system-${Date.now()}`,
                     role: "assistant",
-                    content: `✓ Job scheduled for ${formatSlotTime(scheduleSuggestion.slot.scheduledStart)}. It will now appear on your Calendar.`,
+                    content: `✓ Job scheduled for ${formatSlotTime(scheduleSuggestion.slot.scheduledStart, scheduleSuggestion.timezone)}. It will now appear on your Calendar.`,
                   },
                 ]);
               }}
