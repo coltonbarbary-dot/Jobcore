@@ -175,20 +175,35 @@ export async function POST(req: NextRequest) {
     await updateConversationTitle(org.id, user.id, conversationId, shortTitle);
   }
 
-  // Collect created entities for UI refresh
-  type RichResult = { success: boolean; action: string; entityType?: string; entityId?: string };
-  const createdEntities = (allToolResults as RichResult[])
-    .filter((r) => r.success === true && !!r.entityId)
+  // Collect created entities for UI refresh (excluding scheduling actions — those refresh via scheduleSuggestion)
+  type RichResult = {
+    success: boolean;
+    action: string;
+    entityType?: string;
+    entityId?: string;
+    data?: Record<string, unknown>;
+  };
+  const richResults = allToolResults as RichResult[];
+
+  const createdEntities = richResults
+    .filter((r) => r.success === true && !!r.entityId && r.action !== "suggest_schedule")
     .map((r) => ({
       entityType: r.entityType ?? "unknown",
       entityId: r.entityId!,
       action: r.action,
     }));
 
+  // Extract schedule suggestion from tool results so the UI can render action buttons
+  const suggestionResult = richResults.find(
+    (r) => r.action === "suggest_schedule" && r.success === true && r.data
+  );
+  const scheduleSuggestion = suggestionResult?.data ?? null;
+
   return NextResponse.json({
     conversationId,
     message: finalContent,
     createdEntities,
+    scheduleSuggestion,
     tokensUsed: totalTokens,
   });
 }

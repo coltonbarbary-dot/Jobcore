@@ -6,10 +6,11 @@
 import type { ChatCompletionTool } from "openai/resources/chat/completions";
 import { createCustomer, listCustomers } from "./services/customers";
 import { createLead, listLeads } from "./services/leads";
-import { createJob, listJobs } from "./services/jobs";
+import { createJob, listJobs, updateJob } from "./services/jobs";
 import { createEstimate } from "./services/estimates";
 import { createInvoice } from "./services/invoices";
 import { db } from "./db";
+import { suggestScheduleForJob } from "./jojo-scheduler";
 
 // ─── Tool schemas ─────────────────────────────────────────────────────────────
 
@@ -177,6 +178,38 @@ export const JOJO_TOOLS: ChatCompletionTool[] = [
           },
         },
         required: ["customerId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "suggest_schedule",
+      description: "Analyze the contractor's existing calendar and suggest the best available date and time to schedule a specific job. Always call this before suggesting any schedule to the user. Never auto-schedule — only suggest.",
+      parameters: {
+        type: "object",
+        properties: {
+          jobId: { type: "string", description: "ID of the job to schedule (required)" },
+          durationMinutes: { type: "number", description: "How long the job takes in minutes. If not provided, inferred from job data or defaults to 120." },
+          preferredDate: { type: "string", description: "ISO date string (YYYY-MM-DD) if the customer has a preferred date. Optional." },
+        },
+        required: ["jobId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "approve_schedule",
+      description: "Book the suggested schedule slot for a job ONLY after the user has explicitly confirmed they want to proceed. This updates scheduledStart, scheduledEnd, and sets status=scheduled. Do NOT call this unless the user has said yes to a specific slot.",
+      parameters: {
+        type: "object",
+        properties: {
+          jobId: { type: "string", description: "Job ID to update (required)" },
+          scheduledStart: { type: "string", description: "ISO 8601 datetime for the confirmed start time (required)" },
+          scheduledEnd: { type: "string", description: "ISO 8601 datetime for the confirmed end time (required)" },
+        },
+        required: ["jobId", "scheduledStart", "scheduledEnd"],
       },
     },
   },
@@ -413,6 +446,65 @@ export async function executeTool(
             invoiceNumber: invoice.invoiceNumber,
             status: invoice.status,
             total: Number(invoice.total),
+          },
+        };
+      }
+
+      case "suggest_schedule": {
+        const jobId = String(args.jobId);
+        const durationMinutes = args.durationMinutes ? Number(args.durationMinutes) : undefined;
+        const preferredDate = args.preferredDate ? new Date(String(args.preferredDate)) : undefined;
+
+        const suggestion = await suggestScheduleForJob(
+          organizationId,
+          jobId,
+          durationMinutes,
+          preferredDate
+        );
+
+        if (!suggestion) {
+          return {
+            success: false,
+            action: "suggest_schedule",
+            error: "No available slots found in the next 30 business days, or job not found.",
+          };
+        }
+
+        return {
+          success: true,
+          action: "suggest_schedule",
+          entityType: "job",
+          entityId: jobId,
+          data: suggestion,
+        };
+      }
+
+      case "approve_schedule": {
+        const jobId = String(args.jobId);
+        const scheduledStart = new Date(String(args.scheduledStart));
+        const scheduledEnd = new Date(String(args.scheduledEnd));
+
+        if (isNaN(scheduledStart.getTime()) || isNaN(scheduledEnd.getTime())) {
+          return { success: false, action: "approve_schedule", error: "Invalid date format for scheduledStart or scheduledEnd." };
+        }
+
+        const job = await updateJob(organizationId, actorId, jobId, {
+          scheduledStart,
+          scheduledEnd,
+          status: "scheduled",
+        });
+
+        return {
+          success: true,
+          action: "approve_schedule",
+          entityType: "job",
+          entityId: job.id,
+          data: {
+            id: job.id,
+            title: job.title,
+            scheduledStart: job.scheduledStart,
+            scheduledEnd: job.scheduledEnd,
+            status: job.status,
           },
         };
       }

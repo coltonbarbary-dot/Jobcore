@@ -115,12 +115,17 @@ export default async function EstimateDetailPage({
                   <div>
                     <p className="text-sm font-medium text-[#1e40af]">Job created — needs scheduling</p>
                     <p className="text-xs text-[#3b82f6] mt-0.5">
-                      Set a start date so this job appears on the calendar.
+                      JoJo can suggest the best available time based on your calendar.
                     </p>
                   </div>
-                  <Button size="sm" asChild>
-                    <Link href={`/operations/jobs/${linkedJob.id}/edit`}>Schedule Job →</Link>
-                  </Button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button size="sm" variant="secondary" asChild>
+                      <Link href={`/jojo?scheduleJobId=${linkedJob.id}`}>Ask JoJo</Link>
+                    </Button>
+                    <Button size="sm" asChild>
+                      <Link href={`/operations/jobs/${linkedJob.id}/edit`}>Schedule Manually →</Link>
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-3">

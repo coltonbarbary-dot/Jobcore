@@ -16,14 +16,28 @@ type CreatedEntity = {
   action: string;
 };
 
+type ScheduleSlot = {
+  scheduledStart: string;
+  scheduledEnd: string;
+  reason: string;
+};
+
+type ScheduleSuggestion = {
+  jobId: string;
+  jobTitle: string;
+  customerName: string | null;
+  slot: ScheduleSlot;
+  alternatives: ScheduleSlot[];
+};
+
 function entityHref(entity: CreatedEntity): string {
   switch (entity.entityType) {
-    case "customer":  return `/operations/customers/${entity.entityId}`;
-    case "job":       return `/operations/jobs/${entity.entityId}`;
-    case "lead":      return `/operations/leads/${entity.entityId}`;
-    case "estimate":  return `/operations/estimates/${entity.entityId}`;
-    case "invoice":   return `/operations/invoices/${entity.entityId}`;
-    default:          return "#";
+    case "customer": return `/operations/customers/${entity.entityId}`;
+    case "job":      return `/operations/jobs/${entity.entityId}`;
+    case "lead":     return `/operations/leads/${entity.entityId}`;
+    case "estimate": return `/operations/estimates/${entity.entityId}`;
+    case "invoice":  return `/operations/invoices/${entity.entityId}`;
+    default:         return "#";
   }
 }
 
@@ -35,6 +49,127 @@ function EntityChip({ entity }: { entity: CreatedEntity }) {
     >
       → View {entity.entityType}
     </a>
+  );
+}
+
+function formatSlotTime(isoStr: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  }).format(new Date(isoStr));
+}
+
+function formatEndTime(isoStr: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "UTC",
+  }).format(new Date(isoStr));
+}
+
+interface ScheduleSuggestionCardProps {
+  suggestion: ScheduleSuggestion;
+  onApproved: () => void;
+  onDismiss: () => void;
+}
+
+function ScheduleSuggestionCard({ suggestion, onApproved, onDismiss }: ScheduleSuggestionCardProps) {
+  const [approving, startApprove] = useTransition();
+  const [approved, setApproved] = useState(false);
+  const [approveError, setApproveError] = useState<string | null>(null);
+  const router = useRouter();
+
+  function handleApprove() {
+    setApproveError(null);
+    startApprove(async () => {
+      const res = await fetch("/api/jojo/schedule/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId: suggestion.jobId,
+          scheduledStart: suggestion.slot.scheduledStart,
+          scheduledEnd: suggestion.slot.scheduledEnd,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setApproveError(data.error ?? "Failed to schedule job");
+        return;
+      }
+      setApproved(true);
+      router.refresh();
+      onApproved();
+    });
+  }
+
+  if (approved) {
+    return (
+      <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3 text-sm text-[#16a34a]">
+        ✓ Scheduled! <a href={`/operations/jobs/${suggestion.jobId}`} className="underline font-medium">View job →</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-[#e5e7eb] bg-white shadow-sm p-4 space-y-3 max-w-md">
+      <div>
+        <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wide mb-1">Schedule suggestion</p>
+        <p className="text-sm font-semibold text-[#0a0a0a]">{suggestion.jobTitle}</p>
+        {suggestion.customerName && (
+          <p className="text-xs text-[#6b7280]">{suggestion.customerName}</p>
+        )}
+      </div>
+
+      <div className="rounded-lg bg-[#f9fafb] border border-[#e5e7eb] px-3 py-2.5 space-y-0.5">
+        <p className="text-sm font-medium text-[#0a0a0a]">
+          {formatSlotTime(suggestion.slot.scheduledStart)} – {formatEndTime(suggestion.slot.scheduledEnd)}
+        </p>
+        <p className="text-xs text-[#6b7280]">{suggestion.slot.reason}</p>
+      </div>
+
+      {suggestion.alternatives.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs text-[#9ca3af] font-medium">Alternatives:</p>
+          {suggestion.alternatives.map((alt, i) => (
+            <p key={i} className="text-xs text-[#6b7280]">
+              • {formatSlotTime(alt.scheduledStart)} – {formatEndTime(alt.scheduledEnd)}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {approveError && (
+        <p className="text-xs text-red-600">{approveError}</p>
+      )}
+
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={handleApprove}
+          disabled={approving}
+          className="flex-1"
+        >
+          {approving ? "Scheduling…" : "Approve & Schedule"}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          asChild
+          onClick={onDismiss}
+        >
+          <a href={`/operations/jobs/${suggestion.jobId}/edit`}>
+            Schedule Manually
+          </a>
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -71,28 +206,36 @@ function TypingIndicator() {
   );
 }
 
-export function JojoChat({ initialConversationId }: { initialConversationId?: string }) {
+interface JojoChatProps {
+  initialConversationId?: string;
+  scheduleJobId?: string;
+}
+
+export function JojoChat({ initialConversationId, scheduleJobId }: JojoChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | undefined>(initialConversationId);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [pendingEntities, setPendingEntities] = useState<CreatedEntity[]>([]);
+  const [scheduleSuggestion, setScheduleSuggestion] = useState<ScheduleSuggestion | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const autoTriggered = useRef(false);
   const router = useRouter();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isPending]);
+  }, [messages, isPending, scheduleSuggestion]);
 
-  const sendMessage = useCallback(() => {
-    const text = input.trim();
+  const sendMessage = useCallback((overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || isPending) return;
 
     setInput("");
     setError(null);
     setPendingEntities([]);
+    setScheduleSuggestion(null);
 
     const userMsg: Message = {
       id: `user-${Date.now()}`,
@@ -128,11 +271,22 @@ export function JojoChat({ initialConversationId }: { initialConversationId?: st
 
       if (data.createdEntities?.length > 0) {
         setPendingEntities(data.createdEntities);
-        // Refresh Next.js cache so entity pages show updated data
         router.refresh();
+      }
+
+      if (data.scheduleSuggestion) {
+        setScheduleSuggestion(data.scheduleSuggestion as ScheduleSuggestion);
       }
     });
   }, [input, isPending, conversationId, router]);
+
+  // Auto-trigger schedule suggestion when arriving from a job page
+  useEffect(() => {
+    if (scheduleJobId && !autoTriggered.current && !isPending) {
+      autoTriggered.current = true;
+      sendMessage(`Suggest the best available time to schedule job ID ${scheduleJobId}`);
+    }
+  }, [scheduleJobId, isPending, sendMessage]);
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -141,13 +295,13 @@ export function JojoChat({ initialConversationId }: { initialConversationId?: st
     }
   }
 
-  const isEmpty = messages.length === 0;
+  const isEmpty = messages.length === 0 && !isPending;
 
   return (
     <div className="flex flex-col h-full max-h-[calc(100vh-140px)]">
       {/* Message area */}
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-        {isEmpty && !isPending && (
+        {isEmpty && (
           <div className="text-center py-16 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-[#0a0a0a] text-white flex items-center justify-center text-xl font-bold mx-auto">
               J
@@ -180,6 +334,27 @@ export function JojoChat({ initialConversationId }: { initialConversationId?: st
         ))}
 
         {isPending && <TypingIndicator />}
+
+        {/* Schedule suggestion card — shown after JoJo runs suggest_schedule */}
+        {scheduleSuggestion && !isPending && (
+          <div className="flex justify-start">
+            <ScheduleSuggestionCard
+              suggestion={scheduleSuggestion}
+              onApproved={() => {
+                setScheduleSuggestion(null);
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: `system-${Date.now()}`,
+                    role: "assistant",
+                    content: `✓ Job scheduled for ${formatSlotTime(scheduleSuggestion.slot.scheduledStart)}. It will now appear on your Calendar.`,
+                  },
+                ]);
+              }}
+              onDismiss={() => setScheduleSuggestion(null)}
+            />
+          </div>
+        )}
 
         {pendingEntities.length > 0 && (
           <div className="flex flex-wrap gap-2 pl-2">
@@ -215,7 +390,7 @@ export function JojoChat({ initialConversationId }: { initialConversationId?: st
           <Button
             variant="primary"
             size="sm"
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={isPending || !input.trim()}
             className="shrink-0 h-10 px-4"
           >

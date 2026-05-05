@@ -84,12 +84,17 @@ export default async function JobDetailPage({
               <div>
                 <p className="text-sm font-medium text-[#1e40af]">This job needs to be scheduled</p>
                 <p className="text-xs text-[#3b82f6] mt-0.5">
-                  Set a start date so it appears on your calendar.
+                  JoJo can suggest the best available time, or schedule manually.
                 </p>
               </div>
-              <Button size="sm" asChild>
-                <Link href={`/operations/jobs/${id}/edit`}>Schedule Job →</Link>
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" variant="secondary" asChild>
+                  <Link href={`/jojo?scheduleJobId=${id}`}>Ask JoJo</Link>
+                </Button>
+                <Button size="sm" asChild>
+                  <Link href={`/operations/jobs/${id}/edit`}>Schedule Manually →</Link>
+                </Button>
+              </div>
             </div>
           )}
 
