@@ -6,10 +6,10 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/api/webhooks/clerk(.*)",
   "/api/webhooks/stripe(.*)",
-  "/p/(.*)",           // public estimate/invoice/file pages
+  "/p/(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
+export const proxy = clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     const { userId } = await auth();
     if (!userId) {
