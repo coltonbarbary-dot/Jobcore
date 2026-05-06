@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
 import { requireOrg } from "@/lib/auth";
 import { listConversations } from "@/lib/services/jojo";

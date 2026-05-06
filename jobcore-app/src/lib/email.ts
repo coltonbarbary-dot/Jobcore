@@ -1,8 +1,14 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM_EMAIL ?? "noreply@jobcore.app";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+function getResend(): Resend {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("Email not configured: RESEND_API_KEY is missing");
+  }
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 export function getEstimatePublicUrl(token: string): string {
   return `${APP_URL}/p/estimates/${token}`;
@@ -20,10 +26,7 @@ interface SendEstimateEmailParams {
 }
 
 export async function sendEstimateEmail(params: SendEstimateEmailParams): Promise<void> {
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error("Email not configured: RESEND_API_KEY is missing");
-  }
-
+  const resend = getResend();
   const { to, customerName, orgName, estimateNumber, title, total, token, validUntil } = params;
   const url = getEstimatePublicUrl(token);
   const formattedTotal = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(total);
@@ -81,10 +84,7 @@ interface SendInvoiceEmailParams {
 }
 
 export async function sendInvoiceEmail(params: SendInvoiceEmailParams): Promise<void> {
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error("Email not configured: RESEND_API_KEY is missing");
-  }
-
+  const resend = getResend();
   const { to, customerName, orgName, invoiceNumber, amountDue, token, dueDate } = params;
   const url = getInvoicePublicUrl(token);
   const formattedAmount = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amountDue);

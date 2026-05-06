@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { requireOrg } from "@/lib/auth";
 import { buildStorageKey, uploadToStorage } from "@/lib/storage";

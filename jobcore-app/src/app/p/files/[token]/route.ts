@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { getFileByToken } from "@/lib/services/files";
 import { getSignedDownloadUrl } from "@/lib/storage";

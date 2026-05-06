@@ -4,10 +4,18 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-export const db =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-  });
+function getClient(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = new PrismaClient();
+  }
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+// Proxy defers instantiation until first use — prevents
+// PrismaClientConstructorValidationError during Next.js build-time
+// page-data collection when DATABASE_URL is not present.
+export const db = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    return Reflect.get(getClient(), prop);
+  },
+});

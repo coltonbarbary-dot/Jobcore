@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest } from "next/server";
 import { getApiOrg, apiResponse, apiError } from "@/lib/api";
 import { getEstimate, markEstimateSent } from "@/lib/services/estimates";
