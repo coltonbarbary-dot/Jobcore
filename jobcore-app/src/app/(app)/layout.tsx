@@ -12,21 +12,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     include: { organization: true },
   });
 
-  // No org yet — push to onboarding (unless already there)
-  if (!user || !user.organization) {
+  if (!user || !user.organization || !user.organization.onboardingComplete) {
     redirect("/onboarding");
   }
 
-  if (!user.organization.onboardingComplete) {
-    redirect("/onboarding");
-  }
-
-  const initials = user.fullName
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || user.email.slice(0, 2).toUpperCase();
+  const nameParts = user.fullName.trim().split(/\s+/).filter(Boolean);
+  const initials = (
+    nameParts.length >= 2
+      ? nameParts[0][0] + nameParts[nameParts.length - 1][0]
+      : nameParts.length === 1
+      ? nameParts[0].slice(0, 2)
+      : user.email.slice(0, 2)
+  ).toUpperCase() || "??";
 
   return (
     <AppShell

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
@@ -12,7 +14,6 @@ export default async function OnboardingPage() {
     include: { organization: true },
   });
 
-  // Already completed onboarding
   if (user?.organization?.onboardingComplete) {
     redirect("/dashboard");
   }
