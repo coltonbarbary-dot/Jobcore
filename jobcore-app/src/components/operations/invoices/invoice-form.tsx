@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
 import { JobItemEditor, type JobItemDraft } from "@/components/operations/jobs/job-item-editor";
 import type { Customer, Invoice, InvoiceItem, Job } from "@prisma/client";
 
@@ -53,98 +54,129 @@ export function InvoiceForm({
   }));
 
   return (
-    <form action={formAction} className="space-y-5 max-w-xl">
+    <form action={formAction} className="space-y-4 max-w-xl mx-auto">
       {state.error && (
-        <div className="rounded-md bg-[#fef2f2] border border-[#fecaca] px-4 py-3 text-sm text-[#dc2626]">
+        <div className="rounded-lg bg-[#fef2f2] border border-[#fecaca] px-4 py-3 text-sm text-[#dc2626]">
           {state.error}
         </div>
       )}
 
-      <div className="space-y-1.5">
-        <Label htmlFor="customerId">Customer *</Label>
-        <Select
-          id="customerId"
-          name="customerId"
-          required
-          defaultValue={defaultValues?.customerId ?? defaultCustomerId ?? ""}
-        >
-          <option value="">— Select customer —</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>{c.fullName}</option>
-          ))}
-        </Select>
-      </div>
+      {/* ── Basic info ── */}
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9ca3af]">Basic info</p>
 
-      {jobs && jobs.length > 0 && (
-        <div className="space-y-1.5">
-          <Label htmlFor="jobId">Linked Job (optional)</Label>
-          <Select
-            id="jobId"
-            name="jobId"
-            defaultValue={defaultValues?.jobId ?? defaultJobId ?? ""}
-          >
-            <option value="">— No job —</option>
-            {jobs.map((j) => (
-              <option key={j.id} value={j.id}>{j.title}</option>
-            ))}
-          </Select>
-        </div>
-      )}
+          <div className="space-y-1.5">
+            <Label htmlFor="customerId">Customer *</Label>
+            <Select
+              id="customerId"
+              name="customerId"
+              required
+              defaultValue={defaultValues?.customerId ?? defaultCustomerId ?? ""}
+            >
+              <option value="">— Select customer —</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>{c.fullName}</option>
+              ))}
+            </Select>
+          </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="dueDate">Due Date</Label>
-          <Input
-            id="dueDate"
-            name="dueDate"
-            type="date"
-            defaultValue={toDateInput(defaultValues?.dueDate)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="taxRatePercent">Tax Rate (%)</Label>
-          <Input
-            id="taxRatePercent"
-            name="taxRatePercent"
-            type="number"
-            min="0"
-            max="100"
-            step="0.001"
-            defaultValue={taxRateToPercent(defaultValues?.taxRate)}
-            placeholder="0"
-          />
-        </div>
-      </div>
+          {jobs && jobs.length > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor="jobId">Linked job <span className="text-[#9ca3af] font-normal">(optional)</span></Label>
+              <Select
+                id="jobId"
+                name="jobId"
+                defaultValue={defaultValues?.jobId ?? defaultJobId ?? ""}
+              >
+                <option value="">— No job —</option>
+                {jobs.map((j) => (
+                  <option key={j.id} value={j.id}>{j.title}</option>
+                ))}
+              </Select>
+            </div>
+          )}
 
-      <div className="space-y-1.5">
-        <Label htmlFor="discountAmount">Discount ($)</Label>
-        <Input
-          id="discountAmount"
-          name="discountAmount"
-          type="number"
-          min="0"
-          step="0.01"
-          defaultValue={defaultValues?.discountAmount ? String(Number(defaultValues.discountAmount)) : ""}
-          placeholder="0.00"
-        />
-      </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="dueDate">Due date</Label>
+              <Input
+                id="dueDate"
+                name="dueDate"
+                type="date"
+                defaultValue={toDateInput(defaultValues?.dueDate)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="taxRatePercent">Tax rate (%)</Label>
+              <Input
+                id="taxRatePercent"
+                name="taxRatePercent"
+                type="number"
+                min="0"
+                max="100"
+                step="0.001"
+                defaultValue={taxRateToPercent(defaultValues?.taxRate)}
+                placeholder="0"
+              />
+            </div>
+          </div>
 
-      <fieldset className="space-y-3 rounded-md border border-[#e5e7eb] p-4">
-        <legend className="px-1 text-xs font-medium text-[#6b7280]">Line Items</legend>
-        <JobItemEditor initialItems={initialItems} name="items" />
-      </fieldset>
+          <div className="space-y-1.5">
+            <Label htmlFor="discountAmount">Discount ($)</Label>
+            <Input
+              id="discountAmount"
+              name="discountAmount"
+              type="number"
+              min="0"
+              step="0.01"
+              defaultValue={
+                defaultValues?.discountAmount ? String(Number(defaultValues.discountAmount)) : ""
+              }
+              placeholder="0.00"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="notes">Notes</Label>
-        <Textarea id="notes" name="notes" defaultValue={defaultValues?.notes ?? ""} placeholder="Additional details for the customer…" rows={3} />
-      </div>
+      {/* ── Line items ── */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9ca3af]">Line items</p>
+          <JobItemEditor initialItems={initialItems} name="items" />
+        </CardContent>
+      </Card>
 
-      <div className="space-y-1.5">
-        <Label htmlFor="terms">Terms &amp; Conditions</Label>
-        <Textarea id="terms" name="terms" defaultValue={defaultValues?.terms ?? ""} placeholder="Payment terms, late fees, etc." rows={3} />
-      </div>
+      {/* ── Terms & notes ── */}
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#9ca3af]">Notes & terms</p>
 
-      <Button type="submit" disabled={isPending}>
+          <div className="space-y-1.5">
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea
+              id="notes"
+              name="notes"
+              defaultValue={defaultValues?.notes ?? ""}
+              placeholder="Additional details for the customer…"
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="terms">Terms & conditions</Label>
+            <Textarea
+              id="terms"
+              name="terms"
+              defaultValue={defaultValues?.terms ?? ""}
+              placeholder="Payment terms, late fees, etc."
+              rows={3}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Button type="submit" size="lg" className="w-full" disabled={isPending}>
         {isPending ? "Saving…" : submitLabel}
       </Button>
     </form>
