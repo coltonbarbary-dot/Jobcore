@@ -3,17 +3,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors",
+  "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
   {
     variants: {
       variant: {
-        default: "bg-[#0a0a0a] text-white",
-        secondary: "bg-[#f3f4f6] text-[#374151]",
-        success: "bg-[#f0fdf4] text-[#16a34a]",
-        warning: "bg-[#fffbeb] text-[#d97706]",
-        danger: "bg-[#fef2f2] text-[#dc2626]",
-        info: "bg-[#eff6ff] text-[#2563eb]",
-        outline: "border border-[#e5e7eb] text-[#374151]",
+        default:     "border border-[#0a0a0a] text-[#0a0a0a]",
+        filled:      "bg-[#0a0a0a] text-white",
+        secondary:   "border border-[#e5e7eb] text-[#374151]",
+        success:     "border border-[#bbf7d0] text-[#16a34a] bg-[#f0fdf4]",
+        warning:     "border border-[#fde68a] text-[#d97706] bg-[#fffbeb]",
+        danger:      "border border-[#fecaca] text-[#dc2626] bg-[#fef2f2]",
+        info:        "border border-[#bfdbfe] text-[#2563eb] bg-[#eff6ff]",
       },
     },
     defaultVariants: {
@@ -23,11 +23,11 @@ const badgeVariants = cva(
 );
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
 function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+  return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
 export { Badge, badgeVariants };
