@@ -6,7 +6,7 @@ import {
   LayoutDashboard,
   Briefcase,
   Calendar,
-  DollarSign,
+  Wallet,
   FolderOpen,
   Sparkles,
   Settings,
@@ -44,11 +44,11 @@ const NAV_ITEMS: NavItem[] = [
     label: "Operations",
     icon: Briefcase,
     children: [
-      { label: "Leads", href: "/operations/leads", icon: UserCheck },
+      { label: "Leads",     href: "/operations/leads",     icon: UserCheck },
       { label: "Customers", href: "/operations/customers", icon: Users },
-      { label: "Jobs", href: "/operations/jobs", icon: ClipboardList },
+      { label: "Jobs",      href: "/operations/jobs",      icon: ClipboardList },
       { label: "Estimates", href: "/operations/estimates", icon: FileText },
-      { label: "Invoices", href: "/operations/invoices", icon: Receipt },
+      { label: "Invoices",  href: "/operations/invoices",  icon: Receipt },
     ],
   },
   {
@@ -58,10 +58,10 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     label: "Financials",
-    icon: DollarSign,
+    icon: Wallet,
     children: [
       { label: "Expenses", href: "/financials/expenses", icon: TrendingUp },
-      { label: "Reports", href: "/financials/reports", icon: BarChart2 },
+      { label: "Reports",  href: "/financials/reports",  icon: BarChart2 },
     ],
   },
   {
@@ -93,8 +93,8 @@ function NavGroup({ item }: { item: NavItem }) {
         className={cn(
           "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
           isActive
-            ? "bg-[#1f2937] text-white"
-            : "text-[#9ca3af] hover:bg-[#111827] hover:text-white"
+            ? "bg-[#f3f4f6] text-[#0a0a0a] font-medium"
+            : "text-[#6b7280] hover:bg-[#f9fafb] hover:text-[#0a0a0a]"
         )}
       >
         <item.icon className="h-4 w-4 shrink-0" />
@@ -106,7 +106,7 @@ function NavGroup({ item }: { item: NavItem }) {
         )}
       </button>
       {open && (
-        <div className="mt-1 ml-3 border-l border-[#1f2937] pl-3 space-y-0.5">
+        <div className="mt-1 ml-3 border-l border-[#e5e7eb] pl-3 space-y-0.5">
           {item.children?.map((child) => {
             const active = pathname.startsWith(child.href);
             return (
@@ -116,8 +116,8 @@ function NavGroup({ item }: { item: NavItem }) {
                 className={cn(
                   "flex items-center gap-3 rounded-md px-3 py-1.5 text-sm transition-colors",
                   active
-                    ? "bg-[#1f2937] text-white"
-                    : "text-[#9ca3af] hover:bg-[#111827] hover:text-white"
+                    ? "bg-[#f3f4f6] text-[#0a0a0a] font-medium"
+                    : "text-[#6b7280] hover:bg-[#f9fafb] hover:text-[#0a0a0a]"
                 )}
               >
                 <child.icon className="h-3.5 w-3.5 shrink-0" />
@@ -142,15 +142,15 @@ export function Sidebar({ orgName, userInitials, userEmail, onSignOut }: Sidebar
   const pathname = usePathname();
 
   return (
-    <aside className="flex h-full w-64 flex-col bg-[#0a0a0a]">
+    <aside className="flex h-full w-64 flex-col bg-white border-r border-[#e5e7eb]">
       {/* Logo + Org */}
-      <div className="flex items-center gap-3 px-4 py-5 border-b border-[#1f2937]">
-        <div className="flex h-7 w-7 items-center justify-center rounded bg-white">
-          <span className="text-xs font-bold text-[#0a0a0a]">JC</span>
+      <div className="flex items-center gap-3 px-4 py-5 border-b border-[#e5e7eb]">
+        <div className="flex h-7 w-7 items-center justify-center rounded bg-[#0a0a0a]">
+          <span className="text-xs font-bold text-white">JC</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-white truncate">{orgName}</p>
-          <p className="text-xs text-[#6b7280]">JobCore</p>
+          <p className="text-sm font-semibold text-[#0a0a0a] truncate">{orgName}</p>
+          <p className="text-xs text-[#9ca3af]">JobCore</p>
         </div>
       </div>
 
@@ -161,7 +161,11 @@ export function Sidebar({ orgName, userInitials, userEmail, onSignOut }: Sidebar
             return <NavGroup key={item.label} item={item} />;
           }
 
-          const active = item.href ? pathname === item.href || pathname.startsWith(item.href + "/") : false;
+          const active =
+            item.href
+              ? pathname === item.href || pathname.startsWith(item.href + "/")
+              : false;
+
           return (
             <Link
               key={item.label}
@@ -169,8 +173,8 @@ export function Sidebar({ orgName, userInitials, userEmail, onSignOut }: Sidebar
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                 active
-                  ? "bg-[#1f2937] text-white"
-                  : "text-[#9ca3af] hover:bg-[#111827] hover:text-white"
+                  ? "bg-[#f3f4f6] text-[#0a0a0a] font-medium"
+                  : "text-[#6b7280] hover:bg-[#f9fafb] hover:text-[#0a0a0a]"
               )}
             >
               <item.icon className="h-4 w-4 shrink-0" />
@@ -181,17 +185,17 @@ export function Sidebar({ orgName, userInitials, userEmail, onSignOut }: Sidebar
       </nav>
 
       {/* User */}
-      <div className="border-t border-[#1f2937] p-3">
+      <div className="border-t border-[#e5e7eb] p-3">
         <div className="flex items-center gap-3 rounded-md px-2 py-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1f2937] text-xs font-medium text-white shrink-0">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f3f4f6] text-xs font-semibold text-[#0a0a0a] shrink-0">
             {userInitials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-white truncate">{userEmail}</p>
+            <p className="text-xs font-medium text-[#0a0a0a] truncate">{userEmail}</p>
           </div>
           <button
             onClick={onSignOut}
-            className="text-xs text-[#6b7280] hover:text-white transition-colors"
+            className="text-xs text-[#9ca3af] hover:text-[#0a0a0a] transition-colors"
           >
             Out
           </button>
