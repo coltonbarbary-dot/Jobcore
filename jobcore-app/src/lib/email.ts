@@ -1,14 +1,10 @@
 import { Resend } from "resend";
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "noreply@jobcore.app";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-
 function getResend(): Resend {
-  if (!process.env.RESEND_API_KEY) {
-    throw new Error("Email not configured: RESEND_API_KEY is missing");
-  }
   return new Resend(process.env.RESEND_API_KEY);
 }
+const FROM = process.env.RESEND_FROM_EMAIL ?? "noreply@jobcore.app";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
 export function getEstimatePublicUrl(token: string): string {
   return `${APP_URL}/p/estimates/${token}`;
@@ -26,7 +22,10 @@ interface SendEstimateEmailParams {
 }
 
 export async function sendEstimateEmail(params: SendEstimateEmailParams): Promise<void> {
-  const resend = getResend();
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("Email not configured: RESEND_API_KEY is missing");
+  }
+
   const { to, customerName, orgName, estimateNumber, title, total, token, validUntil } = params;
   const url = getEstimatePublicUrl(token);
   const formattedTotal = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(total);
@@ -34,7 +33,7 @@ export async function sendEstimateEmail(params: SendEstimateEmailParams): Promis
     ? `<p style="color:#6b7280;font-size:14px;">Valid until: ${validUntil.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>`
     : "";
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM,
     to,
     subject: `Estimate ${estimateNumber} from ${orgName}`,
@@ -84,7 +83,10 @@ interface SendInvoiceEmailParams {
 }
 
 export async function sendInvoiceEmail(params: SendInvoiceEmailParams): Promise<void> {
-  const resend = getResend();
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("Email not configured: RESEND_API_KEY is missing");
+  }
+
   const { to, customerName, orgName, invoiceNumber, amountDue, token, dueDate } = params;
   const url = getInvoicePublicUrl(token);
   const formattedAmount = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(amountDue);
@@ -92,7 +94,7 @@ export async function sendInvoiceEmail(params: SendInvoiceEmailParams): Promise<
     ? `<p style="color:#6b7280;font-size:14px;">Due by: ${dueDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>`
     : "";
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM,
     to,
     subject: `Invoice ${invoiceNumber} from ${orgName}`,

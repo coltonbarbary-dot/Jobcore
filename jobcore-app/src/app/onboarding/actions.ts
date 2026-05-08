@@ -32,22 +32,22 @@ export async function completeOnboarding(formData: {
   });
 
   if (!existingUser?.organization) {
-    // Webhook hasn't fired (or wasn't configured) — provision org + user now.
-    const orgName = formData.businessName.trim() || "My Business";
-    const slugBase = orgName
+    // Webhook hasn't fired yet — auto-provision org + user from Clerk data
+    const slugBase = formData.businessName
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 30);
     const slug = `${slugBase || "org"}-${randomUUID().slice(0, 6)}`;
 
     const org = await db.organization.create({
       data: {
         clerkOrganizationId: `personal_${userId}`,
-        name: orgName,
+        name: formData.businessName.trim(),
         slug,
         ownerId: userId,
-        businessType: formData.businessType.trim() || null,
-        phone: formData.phone.trim() || null,
+        businessType: formData.businessType.trim(),
+        phone: formData.phone.trim(),
         address: {
           street: formData.street.trim(),
           city: formData.city.trim(),
@@ -74,13 +74,13 @@ export async function completeOnboarding(formData: {
       },
     });
   } else {
-    // Org already exists (webhook fired) — update details and mark complete.
+    // Org exists — update it
     await db.organization.update({
       where: { id: existingUser.organization.id },
       data: {
         name: formData.businessName.trim(),
-        businessType: formData.businessType.trim() || null,
-        phone: formData.phone.trim() || null,
+        businessType: formData.businessType.trim(),
+        phone: formData.phone.trim(),
         address: {
           street: formData.street.trim(),
           city: formData.city.trim(),

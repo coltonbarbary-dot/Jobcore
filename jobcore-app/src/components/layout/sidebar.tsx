@@ -35,11 +35,7 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   {
     label: "Operations",
     icon: Briefcase,
@@ -51,11 +47,7 @@ const NAV_ITEMS: NavItem[] = [
       { label: "Invoices",  href: "/operations/invoices",  icon: Receipt },
     ],
   },
-  {
-    label: "Calendar",
-    href: "/calendar",
-    icon: Calendar,
-  },
+  { label: "Calendar",   href: "/calendar",  icon: Calendar },
   {
     label: "Financials",
     icon: Wallet,
@@ -64,21 +56,9 @@ const NAV_ITEMS: NavItem[] = [
       { label: "Reports",  href: "/financials/reports",  icon: BarChart2 },
     ],
   },
-  {
-    label: "Files",
-    href: "/files",
-    icon: FolderOpen,
-  },
-  {
-    label: "JoJo",
-    href: "/jojo",
-    icon: Sparkles,
-  },
-  {
-    label: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
+  { label: "Files",     href: "/files",     icon: FolderOpen },
+  { label: "JoJo",      href: "/jojo",      icon: Sparkles },
+  { label: "Settings",  href: "/settings",  icon: Settings },
 ];
 
 function NavGroup({ item }: { item: NavItem }) {
@@ -99,11 +79,7 @@ function NavGroup({ item }: { item: NavItem }) {
       >
         <item.icon className="h-4 w-4 shrink-0" />
         <span className="flex-1 text-left">{item.label}</span>
-        {open ? (
-          <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ChevronRight className="h-3 w-3" />
-        )}
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
       </button>
       {open && (
         <div className="mt-1 ml-3 border-l border-[#e5e7eb] pl-3 space-y-0.5">
@@ -157,15 +133,10 @@ export function Sidebar({ orgName, userInitials, userEmail, onSignOut }: Sidebar
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {NAV_ITEMS.map((item) => {
-          if (item.children) {
-            return <NavGroup key={item.label} item={item} />;
-          }
-
-          const active =
-            item.href
-              ? pathname === item.href || pathname.startsWith(item.href + "/")
-              : false;
-
+          if (item.children) return <NavGroup key={item.label} item={item} />;
+          const active = item.href
+            ? pathname === item.href || pathname.startsWith(item.href + "/")
+            : false;
           return (
             <Link
               key={item.label}
