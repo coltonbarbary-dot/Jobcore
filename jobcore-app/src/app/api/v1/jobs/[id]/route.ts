@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest } from "next/server";
 import { getApiOrg, apiResponse, apiError } from "@/lib/api";
 import { getJob, updateJob, deleteJob } from "@/lib/services/jobs";

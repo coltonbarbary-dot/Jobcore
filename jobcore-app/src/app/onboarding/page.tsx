@@ -3,6 +3,8 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { OnboardingWizard } from "@/components/onboarding/onboarding-wizard";
 
+export const dynamic = "force-dynamic";
+
 export default async function OnboardingPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");

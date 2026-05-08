@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { completeOnboarding } from "@/app/(app)/onboarding/actions";
+import { completeOnboarding } from "@/app/onboarding/actions";
 import { ChevronRight, ChevronLeft, CheckCircle2 } from "lucide-react";
 
 const BUSINESS_TYPES = [

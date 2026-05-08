@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function getResend(): Resend {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 const FROM = process.env.RESEND_FROM_EMAIL ?? "noreply@jobcore.app";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -31,7 +33,7 @@ export async function sendEstimateEmail(params: SendEstimateEmailParams): Promis
     ? `<p style="color:#6b7280;font-size:14px;">Valid until: ${validUntil.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>`
     : "";
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM,
     to,
     subject: `Estimate ${estimateNumber} from ${orgName}`,
@@ -92,7 +94,7 @@ export async function sendInvoiceEmail(params: SendInvoiceEmailParams): Promise<
     ? `<p style="color:#6b7280;font-size:14px;">Due by: ${dueDate.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}</p>`
     : "";
 
-  const { error } = await resend.emails.send({
+  const { error } = await getResend().emails.send({
     from: FROM,
     to,
     subject: `Invoice ${invoiceNumber} from ${orgName}`,
