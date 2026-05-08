@@ -12,7 +12,7 @@ export function PageShell({ title, description, action, children, className }: P
   return (
     <div className={cn("flex flex-col h-full", className)}>
       {/* Page header */}
-      <div className="flex items-center justify-between border-b border-[#e5e7eb] bg-white px-4 py-3 md:px-6 md:py-4">
+      <div className="flex items-center justify-between border-b border-[#e5e7eb] bg-white px-4 py-3 md:px-6 md:py-4 shrink-0">
         <div>
           <h1 className="text-base font-semibold text-[#0a0a0a] leading-snug">{title}</h1>
           {description && (
@@ -22,8 +22,13 @@ export function PageShell({ title, description, action, children, className }: P
         {action && <div className="shrink-0 ml-4">{action}</div>}
       </div>
 
-      {/* Page body */}
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">{children}</div>
+      {/* Page body — pb-safe keeps content above Safari's bottom bar */}
+      <div
+        className="flex-1 overflow-y-auto p-4 md:p-6"
+        style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom, 1rem))" }}
+      >
+        {children}
+      </div>
     </div>
   );
 }
